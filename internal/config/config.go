@@ -10,6 +10,11 @@ type GossipConfig struct {
 	CacheSize int
 }
 
+var defaultConfig = GossipConfig{
+	Degree:    30,
+	CacheSize: 50,
+}
+
 func ReadConfig(path string) (*GossipConfig, error) {
 	iniData, err := ini.Load(path)
 	if err != nil {
@@ -20,14 +25,11 @@ func ReadConfig(path string) (*GossipConfig, error) {
 	gossipSection := iniData.Section("gossip")
 	if gossipSection == nil {
 		zap.L().Warn("Provided configuration does not contain a gossip section, falling back to default options.")
-		return &GossipConfig{
-			Degree:    30,
-			CacheSize: 50,
-		}, nil
+		return &defaultConfig, nil
 	}
 
-	degree := getIntOrDefault(gossipSection.Key("degree"), 30, true)
-	cacheSize := getIntOrDefault(gossipSection.Key("cache_size"), 50, true)
+	degree := getIntOrDefault(gossipSection.Key("degree"), defaultConfig.Degree, true)
+	cacheSize := getIntOrDefault(gossipSection.Key("cache_size"), defaultConfig.CacheSize, true)
 
 	return &GossipConfig{
 		Degree:    degree,
