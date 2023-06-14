@@ -6,13 +6,15 @@ import (
 )
 
 type GossipConfig struct {
-	Degree    int
-	CacheSize int
+	Degree     int
+	CacheSize  int
+	ApiAddress string
 }
 
 var defaultConfig = GossipConfig{
-	Degree:    30,
-	CacheSize: 50,
+	Degree:     30,
+	CacheSize:  50,
+	ApiAddress: "localhost:7001",
 }
 
 func ReadConfig(path string) (*GossipConfig, error) {
@@ -28,12 +30,10 @@ func ReadConfig(path string) (*GossipConfig, error) {
 		return &defaultConfig, nil
 	}
 
-	degree := getIntOrDefault(gossipSection.Key("degree"), defaultConfig.Degree, true)
-	cacheSize := getIntOrDefault(gossipSection.Key("cache_size"), defaultConfig.CacheSize, true)
-
 	return &GossipConfig{
-		Degree:    degree,
-		CacheSize: cacheSize,
+		Degree:     getIntOrDefault(gossipSection.Key("degree"), defaultConfig.Degree, true),
+		CacheSize:  getIntOrDefault(gossipSection.Key("cache_size"), defaultConfig.CacheSize, true),
+		ApiAddress: getStringOrDefault(gossipSection.Key("api_address"), defaultConfig.ApiAddress, false),
 	}, nil
 }
 
@@ -44,6 +44,17 @@ func getIntOrDefault(key *ini.Key, fallback int, warnMissing bool) int {
 	}
 	if warnMissing {
 		zap.L().Warn("Configuration value missing, falling back to default", zap.String("key", key.Name()), zap.Int("default", fallback))
+	}
+	return fallback
+}
+
+func getStringOrDefault(key *ini.Key, fallback string, warnMissing bool) string {
+	val := key.Value()
+	if len(val) != 0 {
+		return val
+	}
+	if warnMissing {
+		zap.L().Warn("Configuration value missing, falling back to default", zap.String("key", key.Name()), zap.String("default", fallback))
 	}
 	return fallback
 }
