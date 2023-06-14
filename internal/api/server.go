@@ -2,11 +2,12 @@ package api
 
 import (
 	"bufio"
-	"go.uber.org/zap"
 	"gossiphers/internal/config"
 	"net"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type Server struct {
