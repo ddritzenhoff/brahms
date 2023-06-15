@@ -1,0 +1,6 @@
+.idea
+*.test
+*.out
+*.exe
+go.work
+main
