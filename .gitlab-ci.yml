@@ -1,0 +1,44 @@
+image: golang:latest
+
+.go-cache:
+  variables:
+    GOPATH: $CI_PROJECT_DIR/.go
+  cache:
+    paths:
+      - .go/pkg/mod/
+
+variables:
+  OUTPUT_NAME: __bin__/$CI_PROJECT_NAME
+
+stages:
+  - test
+  - build
+  - release
+
+test:
+  stage: test
+  script:
+    - go vet ./...
+    - go test -race ./...
+
+build:
+  stage: build
+  script:
+    - mkdir -p $OUTPUT_NAME
+    - go build -o $OUTPUT_NAME ./...
+  artifacts:
+    paths:
+      - $OUTPUT_NAME
+
+build_image:
+  image: docker:stable
+  stage: release
+  services:
+    - docker:dind
+  only:
+    - main
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  script:
+    - docker build -t "$CI_REGISTRY_IMAGE:latest" .
+    - docker push "$CI_REGISTRY_IMAGE:latest"
