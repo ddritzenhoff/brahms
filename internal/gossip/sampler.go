@@ -13,12 +13,14 @@ var (
 	ErrInvalidSamplerAmount = errors.New("invalid amount of samplers, should be more than 0")
 )
 
+// Sampler represents a sampler within the Brahms algorithm.
 type Sampler struct {
 	bias            []byte
 	elem            *Node
 	currentElemHash []byte
 }
 
+// Init initiates the sampler by giving it a random pseudo-random bias (i.e. a seed).
 func (s *Sampler) Init() error {
 	s.elem = nil
 	s.bias = make([]byte, 64)
@@ -27,6 +29,7 @@ func (s *Sampler) Init() error {
 	return err
 }
 
+// Next allocates a node to the sampler. The smallest bias+node hash gets saved to maintain fairness.
 func (s *Sampler) Next(newElem Node) {
 	hashFunc := sha256.New()
 	_, err := hashFunc.Write(append(s.bias, newElem.Identity()...))
@@ -41,14 +44,17 @@ func (s *Sampler) Next(newElem Node) {
 	}
 }
 
+// Sample returns the saved node within the sampler.
 func (s *Sampler) Sample() *Node {
 	return s.elem
 }
 
+// SamplerGroup represents a set of Sampler objects.
 type SamplerGroup struct {
 	samplers []Sampler
 }
 
+// Init initializes a set of samplers.
 func (sg *SamplerGroup) Init(size int) error {
 	if size <= 0 {
 		return ErrInvalidSamplerAmount
@@ -64,6 +70,7 @@ func (sg *SamplerGroup) Init(size int) error {
 	return nil
 }
 
+// Update updates all the samplers by having each sampler process all the passed-in nodes.
 func (sg *SamplerGroup) Update(newElems []Node) {
 	for _, newElem := range newElems {
 		for i, s := range sg.samplers {
@@ -73,6 +80,7 @@ func (sg *SamplerGroup) Update(newElems []Node) {
 	}
 }
 
+// SampleAll samples all of the samplers and returns n nodes for n samplers.
 func (sg *SamplerGroup) SampleAll() []*Node {
 	var samples []*Node
 	for _, s := range sg.samplers {

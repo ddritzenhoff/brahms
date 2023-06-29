@@ -6,13 +6,15 @@ import (
 	"encoding/binary"
 )
 
+// NonceSize represents the number of bytes a nonce is composed of.
+const NonceSize int = 8
+
 func SolveChallenge(challenge []byte, difficulty int, ctx context.Context) ([]byte, error) {
 	checkHash := sha256.New()
 
 	var nonce uint64 = 0
-	nonceBytes := make([]byte, 8)
+	nonceBytes := make([]byte, NonceSize)
 	binary.BigEndian.PutUint64(nonceBytes, nonce)
-
 	for {
 		select {
 		case <-ctx.Done():

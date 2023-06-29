@@ -5,13 +5,23 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
-	"go.uber.org/zap"
 	"time"
+
+	"go.uber.org/zap"
 )
+
+// ChallengeSize represents the the number of bytes a challenge is composed of.
+const ChallengeSize int = 8
 
 var (
 	ErrInvalidDifficulty = errors.New("invalid difficulty level")
 )
+
+// TODO (ddritzenhoff) will have to split this up.
+type Challenger interface {
+	NewChallenge(clientAddress string) ([]byte, error)
+	IsSolvedCorrectly(challenge []byte, nonce []byte, clientAddress string, difficulty int) (bool, error)
+}
 
 // The challenger remains a list of 64B keys that are regularly rotated in the given interval.
 // When generating a challenge the newest key in the rotation is used, for verification all keys in the rotation are valid.
@@ -60,8 +70,7 @@ func (ch *challenger) startTicker(iv time.Duration) {
 func (ch *challenger) NewChallenge(clientAddress string) ([]byte, error) {
 	hashFunc := sha256.New()
 	hashFunc.Write(append(ch.keyRotation[len(ch.keyRotation)-1], []byte(clientAddress)...))
-
-	return hashFunc.Sum(nil)[0:8], nil
+	return hashFunc.Sum(nil)[0:ChallengeSize], nil
 }
 
 // IsSolvedCorrectly validates a solved challenge with the generated nonce
