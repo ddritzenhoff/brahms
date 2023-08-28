@@ -1,6 +1,8 @@
 package gossip
 
-import "errors"
+import (
+	"errors"
+)
 
 type MessageType uint16
 
@@ -17,8 +19,11 @@ const (
 
 	MessageTypeGossipMessage MessageType = 0x0060
 
-	// PacketHeaderSize represents the size of the PacketHeader in bytes.
-	PacketHeaderSize uint16 = 4
+	// PacketHeaderSize represents the length of the PacketHeader in bytes.
+	// 2 bytes for the size field, 2 bytes for the Message Type, and 32 bytes for the Sender Identity.
+	PacketHeaderSize int = 36
+	// SignatureSize represents the length of the signature in bytes.
+	SignatureSize int = 64
 )
 
 var (
@@ -27,33 +32,48 @@ var (
 
 // PacketHeader represents the header component of each packet.
 type PacketHeader struct {
-	Size uint16
-	Type MessageType
+	Size           uint16
+	Type           MessageType
+	SenderIdentity []byte
 }
 
 // PacketPing represents a probe sent from one node, n1, to the other node, n2, to check if n2 is still alive.
-type PacketPing PacketHeader
+type PacketPing struct {
+	PacketHeader
+	Signature []byte
+}
 
 // PacketPong represents a reply to the ping indicating that n2 is alive.
-type PacketPong PacketHeader
+type PacketPong struct {
+	PacketHeader
+	Signature []byte
+}
 
 // PacketPullRequest represents a request to a node to share its view.
-type PacketPullRequest PacketHeader
+type PacketPullRequest struct {
+	PacketHeader
+	Signature []byte
+}
 
 // PacketPullResponse represents the nodes requested from the pull request.
 type PacketPullResponse struct {
 	PacketHeader
-	Nodes []byte
+	Nodes     []Node
+	Signature []byte
 }
 
 // PacketPushRequest represents the request of a node, n1, to send its ID to another node, n2.
-type PacketPushRequest PacketHeader
+type PacketPushRequest struct {
+	PacketHeader
+	Signature []byte
+}
 
 // PacketPushChallenge represents the response to the push request with an included POW challenge.
 type PacketPushChallenge struct {
 	PacketHeader
 	Difficulty uint32
 	Challenge  []byte
+	Signature  []byte
 }
 
 // PacketPush represents a reply to the challenge with the correct nonce and node.
@@ -61,7 +81,8 @@ type PacketPush struct {
 	PacketHeader
 	Challenge []byte
 	Nonce     []byte
-	Node      string
+	Node      Node
+	Signature []byte
 }
 
 // PacketMessage represents the gossip message to be spread amongst all nodes within the local view when received from a known peer. TTL should be decreased every time the message is forwarded with a TTL=1 not being forwarded any further.
@@ -69,6 +90,7 @@ type PacketMessage struct {
 	PacketHeader
 	TTL uint8
 	/* reserved 8 bits */
-	DataType uint16
-	Data     []byte
+	DataType  uint16
+	Data      []byte
+	Signature []byte
 }
