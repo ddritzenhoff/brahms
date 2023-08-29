@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
+
 	"go.uber.org/zap"
 )
 
@@ -28,7 +29,7 @@ func (s *Sampler) Init() error {
 
 func (s *Sampler) Next(newElem Node) {
 	hashFunc := sha256.New()
-	_, err := hashFunc.Write(append(s.bias, newElem.Identity()...))
+	_, err := hashFunc.Write(append(s.bias, newElem.Identity...))
 	if err != nil {
 		zap.L().Panic("Unexpected error during hash calculation", zap.Error(err))
 	}
