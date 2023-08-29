@@ -5,9 +5,13 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
-	"go.uber.org/zap"
 	"time"
+
+	"go.uber.org/zap"
 )
+
+// ChallengeSize represents the the number of bytes a challenge is composed of.
+const ChallengeSize int = 32
 
 var (
 	ErrInvalidDifficulty = errors.New("invalid difficulty level")
