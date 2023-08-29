@@ -14,10 +14,15 @@ func TestSampler_Next(t *testing.T) {
 			elem:            nil,
 			currentElemHash: nil,
 		}
-		node := Node{Address: "someAddress"}
-		sampler.Next(node)
+		mockAddr := "1.2.3.4:5678"
+		mockIdentity := make([]byte, IdentitySize) // 0x0000..00
+		node, err := NewNode(mockIdentity, mockAddr)
+		if err != nil {
+			t.Error(err)
+		}
+		sampler.Next(*node)
 
-		if *sampler.elem != node {
+		if sampler.elem == nil {
 			t.Error("Empty sampler did not accept new node")
 		}
 		if sampler.currentElemHash == nil || len(sampler.currentElemHash) != 32 {
@@ -26,18 +31,31 @@ func TestSampler_Next(t *testing.T) {
 	})
 
 	t.Run("sampler replaces internal element", func(t *testing.T) {
-		oldNode := Node{Address: "someOldAddress"}
+		mockAddr1 := "1.2.3.4:5678"
+		mockIdentity1 := make([]byte, IdentitySize)
+		oldNode, err := NewNode(mockIdentity1, mockAddr1)
+		if err != nil {
+			t.Error(err)
+		}
 		ffSlice := sliceRepeat(32, byte(0xFF))
 		sampler := Sampler{
 			bias:            []byte{0x00, 0x01},
-			elem:            &oldNode,
+			elem:            oldNode,
 			currentElemHash: ffSlice,
 		}
-		node := Node{Address: "someAddress"}
-		sampler.Next(node)
+		mockAddr2 := "3.4.5.6:7890"
+		mockIdentity2 := sliceRepeat(32, byte(0x11))
+		node, err := NewNode(mockIdentity2, mockAddr2)
+		if err != nil {
+			t.Error(err)
+		}
+		sampler.Next(*node)
 
-		if *sampler.elem != node {
-			t.Error("Sampler did not replace internal node")
+		if sampler.elem.Address != node.Address {
+			t.Error("Sampler did not replace internal node Address")
+		}
+		if !bytes.Equal(sampler.elem.Identity, node.Identity) {
+			t.Error("Sampler did not replace internal node Identity")
 		}
 		if bytes.Equal(sampler.currentElemHash, ffSlice) {
 			t.Error("Sampler did not replace internal element hash")
@@ -45,19 +63,31 @@ func TestSampler_Next(t *testing.T) {
 	})
 
 	t.Run("sampler does not replace internal element", func(t *testing.T) {
-		oldNode := Node{Address: "someOldAddress"}
-
+		mockAddr1 := "1.2.3.4:5678"
+		mockIdentity1 := sliceRepeat(IdentitySize, byte(0x01))
+		oldNode, err := NewNode(mockIdentity1, mockAddr1)
+		if err != nil {
+			t.Error(err)
+		}
 		zeroSlice := sliceRepeat(32, byte(0x00))
 		sampler := Sampler{
 			bias:            []byte{0x00, 0x01},
-			elem:            &oldNode,
+			elem:            oldNode,
 			currentElemHash: zeroSlice,
 		}
+		mockAddr2 := "3.4.5.6:7890"
+		mockIdentity2 := sliceRepeat(32, byte(0x11))
+		node, err := NewNode(mockIdentity2, mockAddr2)
+		if err != nil {
+			t.Error(err)
+		}
+		sampler.Next(*node)
 
-		sampler.Next(Node{Address: "someAddress"})
-
-		if *sampler.elem != oldNode {
-			t.Error("Sampler replaced internal node")
+		if sampler.elem.Address != oldNode.Address {
+			t.Error("Sampler replaced internal node Address")
+		}
+		if !bytes.Equal(sampler.elem.Identity, oldNode.Identity) {
+			t.Error("Sampler replaced internal node Identity")
 		}
 		if !bytes.Equal(sampler.currentElemHash, zeroSlice) {
 			t.Error("Sampler replaced internal element hash")
@@ -69,16 +99,24 @@ func TestSampler_Sample(t *testing.T) {
 	t.Parallel()
 
 	t.Run("sample returns internal node reference", func(t *testing.T) {
-		node := Node{Address: "someOldAddress"}
+		mockAddr1 := "1.2.3.4:5678"
+		mockIdentity1 := sliceRepeat(IdentitySize, byte(0x01))
+		node, err := NewNode(mockIdentity1, mockAddr1)
+		if err != nil {
+			t.Error(err)
+		}
 		sampler := Sampler{
 			bias:            []byte{0x00, 0x01},
-			elem:            &node,
+			elem:            node,
 			currentElemHash: nil,
 		}
 
 		sampledNode := sampler.Sample()
-		if *sampledNode != node {
-			t.Error("Sampler did not return internal node reference")
+		if sampledNode.Address != mockAddr1 {
+			t.Error("Sampler did not return internal node reference Address")
+		}
+		if !bytes.Equal(sampledNode.Identity, mockIdentity1) {
+			t.Error("Sampler did not return internal node reference Identity")
 		}
 	})
 }
@@ -111,38 +149,54 @@ func TestSamplerGroup_Update(t *testing.T) {
 		zeroSlice := sliceRepeat(32, byte(0x00))
 		ffSlice := sliceRepeat(32, byte(0xFF))
 
-		nodeOld1 := Node{
-			Address: "nodeOld1",
+		mockAddr1 := "1.2.3.4:5678"
+		mockIdentity1 := sliceRepeat(IdentitySize, byte(0x01))
+		node1, err := NewNode(mockIdentity1, mockAddr1)
+		if err != nil {
+			t.Error(err)
 		}
-		nodeOld2 := Node{
-			Address: "nodeOld2",
+
+		mockAddr2 := "3.4.5.6:7890"
+		mockIdentity2 := sliceRepeat(IdentitySize, byte(0x11))
+		node2, err := NewNode(mockIdentity2, mockAddr2)
+		if err != nil {
+			t.Error(err)
 		}
 
 		sg := SamplerGroup{
 			samplers: []Sampler{
 				{
 					bias:            []byte{0x01, 0x02},
-					elem:            &nodeOld1,
+					elem:            node1,
 					currentElemHash: zeroSlice,
 				},
 				{
 					bias:            []byte{0x02, 0x01},
-					elem:            &nodeOld2,
+					elem:            node2,
 					currentElemHash: ffSlice,
 				},
 			},
 		}
 
-		nodeNew1 := Node{
-			Address: "nodeNew1",
+		mockAddr3 := "5.6.7.8:9012"
+		mockIdentity3 := sliceRepeat(IdentitySize, byte(0x22))
+		node3, err := NewNode(mockIdentity3, mockAddr3)
+		if err != nil {
+			t.Error(err)
 		}
-		sg.Update([]Node{nodeNew1})
+		sg.Update([]Node{*node3})
 
-		if *sg.samplers[0].elem != nodeOld1 {
-			t.Error("SamplerGroup did not update first Sampler")
+		if sg.samplers[0].elem.Address != node1.Address {
+			t.Error("SamplerGroup updated first Sampler Address")
 		}
-		if *sg.samplers[1].elem != nodeNew1 {
-			t.Error("SamplerGroup updated second Sampler")
+		if !bytes.Equal(sg.samplers[0].elem.Identity, node1.Identity) {
+			t.Error("SamplerGroup updated first Sampler Identity")
+		}
+		if sg.samplers[1].elem.Address != node3.Address {
+			t.Error("SamplerGroup did not update second Sampler Address")
+		}
+		if !bytes.Equal(sg.samplers[1].elem.Identity, node3.Identity) {
+			t.Error("SamplerGroup did not update second Sampler Identity")
 		}
 	})
 }
@@ -151,23 +205,30 @@ func TestSamplerGroup_SampleAll(t *testing.T) {
 	t.Parallel()
 
 	t.Run("SamplerGroup returns all internal node references", func(t *testing.T) {
-		node1 := Node{
-			Address: "node1",
+		mockAddr1 := "1.2.3.4:5678"
+		mockIdentity1 := sliceRepeat(IdentitySize, byte(0x01))
+		node1, err := NewNode(mockIdentity1, mockAddr1)
+		if err != nil {
+			t.Error(err)
 		}
-		node2 := Node{
-			Address: "node2",
+
+		mockAddr2 := "3.4.5.6:7890"
+		mockIdentity2 := sliceRepeat(IdentitySize, byte(0x11))
+		node2, err := NewNode(mockIdentity2, mockAddr2)
+		if err != nil {
+			t.Error(err)
 		}
 
 		sg := SamplerGroup{
 			samplers: []Sampler{
 				{
 					bias:            []byte{0x01, 0x02},
-					elem:            &node1,
+					elem:            node1,
 					currentElemHash: []byte{0x00, 0x00},
 				},
 				{
 					bias:            []byte{0x02, 0x01},
-					elem:            &node2,
+					elem:            node2,
 					currentElemHash: []byte{0x00, 0x00},
 				},
 				{
@@ -182,7 +243,7 @@ func TestSamplerGroup_SampleAll(t *testing.T) {
 		if len(internalNodes) != 2 {
 			t.Error("SamplerGroup did not return all internal nodes")
 		}
-		if *internalNodes[0] != node1 || *internalNodes[1] != node2 {
+		if internalNodes[0].Address != node1.Address || !bytes.Equal(internalNodes[0].Identity, node1.Identity) || internalNodes[1].Address != node2.Address || !bytes.Equal(internalNodes[1].Identity, node2.Identity) {
 			t.Error("SamplerGroup did not return correct internal nodes")
 		}
 	})
