@@ -2,8 +2,11 @@ package api
 
 import (
 	"bufio"
+	"bytes"
+	"errors"
 	"go.uber.org/zap"
 	"gossiphers/internal/config"
+	"io"
 	"net"
 	"sync"
 	"time"
@@ -23,11 +26,9 @@ func StartServer(cfg *config.GossipConfig) (*Server, error) {
 		return nil, err
 	}
 
-	defer listener.Close()
-
 	zap.L().Info("API Server listening", zap.String("address", cfg.ApiAddress))
 
-	server := Server{listener: listener}
+	server := Server{listener: listener, dataTypeToRegisteredConns: make(map[uint16][]net.Conn)}
 
 	go server.listenForConnections()
 
@@ -35,6 +36,7 @@ func StartServer(cfg *config.GossipConfig) (*Server, error) {
 }
 
 func (s *Server) listenForConnections() {
+	defer s.listener.Close()
 	for {
 		conn, err := s.listener.Accept()
 		if err != nil {
@@ -59,12 +61,25 @@ func (s *Server) handleRequests(conn net.Conn) {
 			}
 			s.dataTypeToRegisteredConns[dt] = newClients
 		}
+		_ = conn.Close()
 		zap.L().Info("API Client disconnected", zap.String("client_address", conn.RemoteAddr().String()))
 	}()
 
-	reader := bufio.NewReader(conn)
+	buf := make([]byte, 65535)
 
 	for {
+		buf = make([]byte, 65535)
+		numBytes, err := conn.Read(buf)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			zap.L().Warn("Error reading packet from API connection", zap.String("client_address", conn.RemoteAddr().String()), zap.Error(err))
+			break
+		}
+
+		reader := bufio.NewReader(bytes.NewReader(buf[:numBytes]))
+
 		headerBytes, err := reader.Peek(4)
 		if err != nil {
 			zap.L().Warn("Received invalid packet from API Client. Incomplete Header", zap.String("client_address", conn.RemoteAddr().String()))
