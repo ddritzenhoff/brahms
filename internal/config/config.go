@@ -19,6 +19,9 @@ var defaultConfig = GossipConfig{
 	CacheSize:    50,
 	ApiAddress:   "localhost:7001",
 	HostkeysPath: "./hostkeys/",
+	GossipAddress:       "localhost:7002",
+	ChallengeDifficulty: 20,
+	ChallengeMaxSolveMs: 300,
 }
 
 // GossipConfig represents all of the values needed for the functioning of the gossip protocol.
@@ -31,6 +34,9 @@ type GossipConfig struct {
 	HostkeysPath string
 	// PrivateKey represents the private key of the node.
 	PrivateKey *rsa.PrivateKey
+	GossipAddress       string
+	ChallengeDifficulty int
+	ChallengeMaxSolveMs int
 }
 
 // ReadConfig reads the values in from a .ini file through a specified path and returns a populated config.
@@ -56,6 +62,9 @@ func ReadConfig(path string) (*GossipConfig, error) {
 		ApiAddress:   getStringOrDefault(gossipSection.Key("api_address"), defaultConfig.ApiAddress, false),
 		HostkeysPath: getStringOrDefault(gossipSection.Key("hostkeys_path"), defaultConfig.HostkeysPath, true),
 		PrivateKey:   privKey,
+		GossipAddress:       getStringOrDefault(gossipSection.Key("gossip_address"), defaultConfig.GossipAddress, false),
+		ChallengeDifficulty: getIntOrDefault(gossipSection.Key("challenge_difficulty"), defaultConfig.ChallengeDifficulty, false),
+		ChallengeMaxSolveMs: getIntOrDefault(gossipSection.Key("challenge_max_solve_ms"), defaultConfig.ChallengeMaxSolveMs, false),
 	}, nil
 }
 
