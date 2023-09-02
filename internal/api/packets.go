@@ -2,6 +2,7 @@ package api
 
 import "errors"
 
+// MessageType represents the different types of messages existing within the API specification.
 type MessageType uint16
 
 const (
@@ -16,6 +17,7 @@ var (
 	consecutiveOutgoingMessageID uint16 = 0
 )
 
+// PacketHeader represents the header component of each packet.
 type PacketHeader struct {
 	Size uint16
 	Type MessageType
@@ -58,6 +60,7 @@ type GossipValidation struct {
 	IsValid bool
 }
 
+// NewGossipNotification creates a new Gossip Notification packet.
 func NewGossipNotification(dataType uint16, data []byte) (*GossipNotification, error) {
 	size := 8 + len(data) // 4B PacketHeader + 2B MessageID + 2B DataType
 	if size > 65535 {

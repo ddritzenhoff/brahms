@@ -5,6 +5,7 @@ import (
 	challengeModule "gossiphers/internal/challenge"
 )
 
+// MessageType represents the different types of messages existing within the gossip protocol.
 type MessageType uint16
 
 const (
@@ -52,6 +53,7 @@ type PacketPing struct {
 	PacketFooter
 }
 
+// NewPacketPing returns a new instance of PacketPing.
 func NewPacketPing(senderID []byte) (*PacketPing, error) {
 	if len(senderID) != PeerIdentitySize {
 		return nil, ErrCreatePacketInvalidComponentSize
@@ -74,6 +76,7 @@ type PacketPong struct {
 	PacketFooter
 }
 
+// NewPacketPong returns a new instance of PacketPong.
 func NewPacketPong(senderID []byte) (*PacketPing, error) {
 	if len(senderID) != PeerIdentitySize {
 		return nil, ErrCreatePacketInvalidComponentSize
@@ -96,6 +99,7 @@ type PacketPullRequest struct {
 	PacketFooter
 }
 
+// NewPacketPullRequest returns a new instance of PacketPullRequest.
 func NewPacketPullRequest(senderID []byte) (*PacketPullRequest, error) {
 	if len(senderID) != PeerIdentitySize {
 		return nil, ErrCreatePacketInvalidComponentSize
@@ -119,6 +123,7 @@ type PacketPullResponse struct {
 	PacketFooter
 }
 
+// NewPacketPullResponse returns a new instance of PacketPullResponse.
 func NewPacketPullResponse(senderID []byte, nodes []Node) (*PacketPullResponse, error) {
 	packetSize := PacketHeaderSize + SignatureSize
 	for _, node := range nodes {
@@ -146,6 +151,7 @@ type PacketPushRequest struct {
 	PacketFooter
 }
 
+// NewPacketPushRequest returns a new instance of PacketPushRequest.
 func NewPacketPushRequest(senderID []byte) (*PacketPushRequest, error) {
 	if len(senderID) != PeerIdentitySize {
 		return nil, ErrCreatePacketInvalidComponentSize
@@ -170,6 +176,7 @@ type PacketPushChallenge struct {
 	PacketFooter
 }
 
+// NewPacketPushChallenge returns a new instance of PacketPushChallenge.
 func NewPacketPushChallenge(senderID []byte, difficulty uint32, challenge []byte) (*PacketPushChallenge, error) {
 	if len(senderID) != PeerIdentitySize || len(challenge) != challengeModule.ChallengeSize {
 		return nil, ErrCreatePacketInvalidComponentSize
@@ -197,6 +204,7 @@ type PacketPush struct {
 	PacketFooter
 }
 
+// NewPacketPush returns a new instance of PacketPush.
 func NewPacketPush(senderID []byte, challenge []byte, nonce []byte, node Node) (*PacketPush, error) {
 	packetSize := PacketHeaderSize + SignatureSize + challengeModule.ChallengeSize + challengeModule.NonceSize + len(node.ToBytes())
 	if len(senderID) != PeerIdentitySize || len(challenge) != challengeModule.ChallengeSize || len(nonce) != challengeModule.NonceSize || packetSize > MaxPacketSize {
@@ -227,6 +235,7 @@ type PacketMessage struct {
 	PacketFooter
 }
 
+// NewPacketMessage returns a new instance of PacketMessage.
 func NewPacketMessage(senderID []byte, ttl uint8, dataType uint16, data []byte) (*PacketMessage, error) {
 	packetSize := PacketHeaderSize + SignatureSize + 1 + 1 + 2 + len(data) // ttl = 1, reserved = 1, dataType = 2
 	if len(senderID) != PeerIdentitySize || packetSize > MaxPacketSize {

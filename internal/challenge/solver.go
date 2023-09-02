@@ -9,6 +9,7 @@ import (
 // NonceSize represents the number of bytes a nonce is composed of.
 const NonceSize int = 8
 
+// SolveChallenge attempts to solve the challenge within a given amount of time.
 func SolveChallenge(challenge []byte, difficulty int, ctx context.Context) ([]byte, error) {
 	checkHash := sha256.New()
 

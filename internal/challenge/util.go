@@ -2,6 +2,7 @@ package challenge
 
 import "math/bits"
 
+// countLeadingZeros counts the total number of 0 bits from the beginning of the slice until a 1 is encountered, or until the the slice has been completely traversed.
 func countLeadingZeros(data []byte) int {
 	leadingZeros := 0
 	for i := 0; i < len(data); i++ {

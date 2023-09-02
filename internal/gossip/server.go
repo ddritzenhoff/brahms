@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Server represents a udp listener with handlers for gossip-related messages.
 type Server struct {
 	listener net.PacketConn
 	ownNode  *Node
@@ -143,6 +144,7 @@ func (s *Server) UpdatePullResponseNodes(nodes []Node) {
 	s.mutexPullResponseNodes.Unlock()
 }
 
+// listenForPackets accepts network packets and forwards them to handlers
 func (s *Server) listenForPackets() {
 	defer s.listener.Close()
 	for {
@@ -158,6 +160,7 @@ func (s *Server) listenForPackets() {
 	}
 }
 
+// handleIncomingBytes determines the request type of the packet by means of the header and handles it accordingly.
 func (s *Server) handleIncomingBytes(packetBytes []byte, fromAddr net.Addr) {
 	if len(packetBytes) < PacketHeaderSize+SignatureSize {
 		zap.L().Info("Received gossip packet with invalid length")
@@ -251,6 +254,7 @@ func (s *Server) handleIncomingBytes(packetBytes []byte, fromAddr net.Addr) {
 	}
 }
 
+// sendBytes sends a packet to a select address.
 func (s *Server) sendBytes(packetBytes []byte, address string, receiverIdentity []byte) error {
 	// Sign
 	signature, err := s.crypto.Sign(packetBytes)
@@ -278,6 +282,7 @@ func (s *Server) sendBytes(packetBytes []byte, address string, receiverIdentity 
 	return nil
 }
 
+// addPeerCondition adds a conditional state to a peer.
 func (s *Server) addPeerCondition(identity []byte, condition peerCondition) {
 	s.mutexPeerState.Lock()
 	defer s.mutexPeerState.Unlock()
@@ -294,6 +299,7 @@ func (s *Server) addPeerCondition(identity []byte, condition peerCondition) {
 	}
 }
 
+// hasPeerCondition checks to see if a peer currently has a conditional state associated with it.
 func (s *Server) hasPeerCondition(identity []byte, condition peerCondition) bool {
 	s.mutexPeerState.RLock()
 	defer s.mutexPeerState.RUnlock()

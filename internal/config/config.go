@@ -12,13 +12,14 @@ import (
 	"gopkg.in/ini.v1"
 )
 
+// RSAPrivateKey represents the format the PEM expects within the preamble.
 const RSAPrivateKey = "RSA PRIVATE KEY"
 
 var defaultConfig = GossipConfig{
-	Degree:       30,
-	CacheSize:    50,
-	ApiAddress:   "localhost:7001",
-	HostkeysPath: "./hostkeys/",
+	Degree:              30,
+	CacheSize:           50,
+	ApiAddress:          "localhost:7001",
+	HostkeysPath:        "./hostkeys/",
 	GossipAddress:       "localhost:7002",
 	ChallengeDifficulty: 20,
 	ChallengeMaxSolveMs: 300,
@@ -33,7 +34,7 @@ type GossipConfig struct {
 	// HostkeysPath represents the path to the folder in which all of the hostkeys exist. (i.e. Identity (file name) --> Public Key (file content))
 	HostkeysPath string
 	// PrivateKey represents the private key of the node.
-	PrivateKey *rsa.PrivateKey
+	PrivateKey          *rsa.PrivateKey
 	GossipAddress       string
 	ChallengeDifficulty int
 	ChallengeMaxSolveMs int
@@ -57,11 +58,11 @@ func ReadConfig(path string) (*GossipConfig, error) {
 	privKey := getPrivateKey(iniData.Section(""))
 
 	return &GossipConfig{
-		Degree:       getIntOrDefault(gossipSection.Key("degree"), defaultConfig.Degree, true),
-		CacheSize:    getIntOrDefault(gossipSection.Key("cache_size"), defaultConfig.CacheSize, true),
-		ApiAddress:   getStringOrDefault(gossipSection.Key("api_address"), defaultConfig.ApiAddress, false),
-		HostkeysPath: getStringOrDefault(gossipSection.Key("hostkeys_path"), defaultConfig.HostkeysPath, true),
-		PrivateKey:   privKey,
+		Degree:              getIntOrDefault(gossipSection.Key("degree"), defaultConfig.Degree, true),
+		CacheSize:           getIntOrDefault(gossipSection.Key("cache_size"), defaultConfig.CacheSize, true),
+		ApiAddress:          getStringOrDefault(gossipSection.Key("api_address"), defaultConfig.ApiAddress, false),
+		HostkeysPath:        getStringOrDefault(gossipSection.Key("hostkeys_path"), defaultConfig.HostkeysPath, true),
+		PrivateKey:          privKey,
 		GossipAddress:       getStringOrDefault(gossipSection.Key("gossip_address"), defaultConfig.GossipAddress, false),
 		ChallengeDifficulty: getIntOrDefault(gossipSection.Key("challenge_difficulty"), defaultConfig.ChallengeDifficulty, false),
 		ChallengeMaxSolveMs: getIntOrDefault(gossipSection.Key("challenge_max_solve_ms"), defaultConfig.ChallengeMaxSolveMs, false),
