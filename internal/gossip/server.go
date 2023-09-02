@@ -3,13 +3,14 @@ package gossip
 import (
 	"bytes"
 	"crypto/sha256"
-	"go.uber.org/zap"
 	"gossiphers/internal/api"
 	"gossiphers/internal/challenge"
 	"gossiphers/internal/config"
 	"net"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type Server struct {
@@ -144,9 +145,8 @@ func (s *Server) UpdatePullResponseNodes(nodes []Node) {
 
 func (s *Server) listenForPackets() {
 	defer s.listener.Close()
-	buf := make([]byte, 65535)
 	for {
-		buf = make([]byte, 65535)
+		buf := make([]byte, 65535)
 		numBytes, fromAddr, err := s.listener.ReadFrom(buf)
 		if err != nil {
 			zap.L().Warn("Error reading gossip packet from UDP socket", zap.Error(err))
@@ -175,13 +175,13 @@ func (s *Server) handleIncomingBytes(packetBytes []byte, fromAddr net.Addr) {
 		return
 	}
 
-	senderIdentity, err := NewIdentity(string(header.SenderIdentity))
+	senderIdentity, err := NewIdentity(header.SenderIdentity)
 	if err != nil {
 		zap.L().Error("Could not create identity from received gossip packet", zap.Error(err))
 		return
 	}
 
-	err = s.crypto.VerifySignature(packetBytes[:len(packetBytes)-SignatureSize], packetBytes[len(packetBytes)-SignatureSize:], senderIdentity)
+	err = s.crypto.VerifySignature(packetBytes[:len(packetBytes)-SignatureSize], packetBytes[len(packetBytes)-SignatureSize:], *senderIdentity)
 	if err != nil {
 		zap.L().Info("Signature on received gossip packet could not be validated", zap.Error(err), zap.String("sender_address", fromAddr.String()))
 		return
