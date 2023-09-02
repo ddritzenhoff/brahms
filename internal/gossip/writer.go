@@ -2,7 +2,7 @@ package gossip
 
 import "encoding/binary"
 
-// WriteablePacket represents a packet struct that can be converted to a slice of bytes.
+// WritablePacket represents a packet struct that can be converted to a slice of bytes.
 type WritablePacket interface {
 	ToBytes() []byte
 }
