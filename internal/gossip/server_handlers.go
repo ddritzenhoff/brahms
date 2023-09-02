@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"go.uber.org/zap"
 	"gossiphers/internal/api"
 	"gossiphers/internal/challenge"
 	"net"
+
+	"go.uber.org/zap"
 )
 
+// handlePing handles the ping message type.
 func (s *Server) handlePing(fromAddr net.Addr, packet PacketPing) {
 	pingPacket, err := NewPacketPong(s.ownNode.Identity)
 	if err != nil {
@@ -19,6 +21,7 @@ func (s *Server) handlePing(fromAddr net.Addr, packet PacketPing) {
 	_ = s.sendBytes(pingPacket.ToBytes(), fromAddr.String(), packet.SenderIdentity)
 }
 
+// handlePong handles the pong message type.
 func (s *Server) handlePong(_ net.Addr, packet PacketPong) {
 	s.mutexPongChannels.RLock()
 	if ch, ok := s.pongChannels[string(packet.SenderIdentity)]; ok {
@@ -27,6 +30,7 @@ func (s *Server) handlePong(_ net.Addr, packet PacketPong) {
 	s.mutexPongChannels.RUnlock()
 }
 
+// handlePullRequest handles the pull request message type.
 func (s *Server) handlePullRequest(fromAddr net.Addr, packet PacketPullRequest) {
 	s.mutexPullResponseNodes.RLock()
 	responsePacket, err := NewPacketPullResponse(s.ownNode.Identity, s.pullResponseNodes)
@@ -39,6 +43,7 @@ func (s *Server) handlePullRequest(fromAddr net.Addr, packet PacketPullRequest) 
 	s.sendGossipMessages(fromAddr.String(), packet.SenderIdentity)
 }
 
+// handlePullResponse handles the pull response message type.
 func (s *Server) handlePullResponse(_ net.Addr, packet PacketPullResponse) {
 	if !s.hasPeerCondition(packet.SenderIdentity, AllowPull) {
 		return
@@ -50,6 +55,7 @@ func (s *Server) handlePullResponse(_ net.Addr, packet PacketPullResponse) {
 	}
 }
 
+// handlePushRequest handles the push request message type.
 func (s *Server) handlePushRequest(fromAddr net.Addr, packet PacketPushRequest) {
 	newChallenge, err := s.challenger.NewChallenge(packet.SenderIdentity)
 	if err != nil {
@@ -64,6 +70,7 @@ func (s *Server) handlePushRequest(fromAddr net.Addr, packet PacketPushRequest) 
 	_ = s.sendBytes(challengePacket.ToBytes(), fromAddr.String(), packet.SenderIdentity)
 }
 
+// handlePushChallenge handles the push challenge message type.
 func (s *Server) handlePushChallenge(fromAddr net.Addr, packet PacketPushChallenge) {
 	if !s.hasPeerCondition(packet.SenderIdentity, AllowPushChallenge) {
 		return
@@ -86,6 +93,7 @@ func (s *Server) handlePushChallenge(fromAddr net.Addr, packet PacketPushChallen
 	s.sendGossipMessages(fromAddr.String(), packet.SenderIdentity)
 }
 
+// handlePush handles the push message type.
 func (s *Server) handlePush(_ net.Addr, packet PacketPush) {
 	// Allow only one push per node per cycle
 	if s.hasPeerCondition(packet.SenderIdentity, DenyPush) {
@@ -109,6 +117,7 @@ func (s *Server) handlePush(_ net.Addr, packet PacketPush) {
 	s.pushNodes <- packet.Node
 }
 
+// handleMessage handles the gossip-message message type.
 func (s *Server) handleMessage(fromAddr net.Addr, packet PacketMessage) {
 	if !s.hasPeerCondition(packet.SenderIdentity, AllowMessage) {
 		return

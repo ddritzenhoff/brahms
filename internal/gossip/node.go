@@ -16,6 +16,7 @@ type Node struct {
 	Address  string
 }
 
+// NewNode returns a new instance of Node.
 func NewNode(Identity []byte, Address string) (*Node, error) {
 	if len(Identity) != IdentitySize {
 		zap.L().Error("Identity is not of the correct length", zap.Int("len", len(Identity)))

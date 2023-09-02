@@ -4,10 +4,12 @@ import (
 	"encoding/binary"
 )
 
+// WritablePacket represents a packet struct that can be converted to a slice of bytes.
 type WritablePacket interface {
 	ToBytes() []byte
 }
 
+// ToBytes converts the GossipNotification struct to a slice of bytes.
 func (p *GossipNotification) ToBytes() []byte {
 	var bytes []byte
 	bytes = binary.BigEndian.AppendUint16(bytes, p.Size)

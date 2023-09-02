@@ -14,10 +14,12 @@ var (
 	supportedIncomingMessageTypes = []MessageType{MessageTypeGossipAnnounce, MessageTypeGossipNotify, MessageTypeGossipValidation}
 )
 
+// ParseablePacket represents the ability to parse this particular packet.
 type ParseablePacket interface {
 	Parse(header *PacketHeader, reader *bufio.Reader) error
 }
 
+// ParsePacketHeader attempts to parse the packet header.
 func ParsePacketHeader(data []byte) (*PacketHeader, error) {
 	if len(data) != 4 {
 		return nil, ErrParsePacketHeaderInvalidSize
@@ -38,6 +40,7 @@ func ParsePacketHeader(data []byte) (*PacketHeader, error) {
 	return &PacketHeader{Size: size, Type: messageType}, nil
 }
 
+// Parse parses the Gossip Announce packet.
 func (p *GossipAnnounce) Parse(header *PacketHeader, reader *bufio.Reader) error {
 	if _, err := reader.Peek(8); err != nil {
 		return ErrParsePacketInvalidSize
@@ -83,6 +86,7 @@ func (p *GossipAnnounce) Parse(header *PacketHeader, reader *bufio.Reader) error
 	return nil
 }
 
+// Parse parses the Gossip Notify packet.
 func (p *GossipNotify) Parse(header *PacketHeader, reader *bufio.Reader) error {
 	if _, err := reader.Peek(8); err != nil || header.Size != 8 {
 		return ErrParsePacketInvalidSize
@@ -113,6 +117,7 @@ func (p *GossipNotify) Parse(header *PacketHeader, reader *bufio.Reader) error {
 	return nil
 }
 
+// Parse parses the Gossip Validation packet.
 func (p *GossipValidation) Parse(header *PacketHeader, reader *bufio.Reader) error {
 	if _, err := reader.Peek(8); err != nil || header.Size != 8 {
 		return ErrParsePacketInvalidSize

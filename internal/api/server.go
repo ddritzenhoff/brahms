@@ -4,14 +4,16 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"go.uber.org/zap"
 	"gossiphers/internal/config"
 	"io"
 	"net"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
+// Server represents a tcp listener.
 type Server struct {
 	listener                  net.Listener
 	dataTypeToRegisteredConns map[uint16][]net.Conn
@@ -20,6 +22,7 @@ type Server struct {
 	gossipNotificationLock    sync.Mutex
 }
 
+// StartServer starts listening for tcp connections.
 func StartServer(cfg *config.GossipConfig) (*Server, error) {
 	listener, err := net.Listen("tcp", cfg.ApiAddress)
 	if err != nil {
@@ -35,6 +38,7 @@ func StartServer(cfg *config.GossipConfig) (*Server, error) {
 	return &server, nil
 }
 
+// listenForConnections accepts network connection requests and forwards them to handlers.
 func (s *Server) listenForConnections() {
 	defer s.listener.Close()
 	for {
@@ -48,6 +52,7 @@ func (s *Server) listenForConnections() {
 	}
 }
 
+// handleRequests determines the request type of the connection by means of the header and handles the packet accordingly.
 func (s *Server) handleRequests(conn net.Conn) {
 	zap.L().Info("New API Client connected", zap.String("client_address", conn.RemoteAddr().String()))
 	defer func() {
@@ -132,18 +137,22 @@ func (s *Server) handleRequests(conn net.Conn) {
 	}
 }
 
+// GossipAnnounceHandler represents a handler for the Gossip Announce message.
 type GossipAnnounceHandler func(ttl uint8, dataType uint16, data []byte)
 
+// RegisterGossipAnnounceHandler registers a GossipAnnounceHandler.
 func (s *Server) RegisterGossipAnnounceHandler(fn GossipAnnounceHandler) {
 	s.gossipAnnounceHandlers = append(s.gossipAnnounceHandlers, fn)
 }
 
+// GossipValidationHandler represents a handler for the Gossip Validation message.
 type GossipValidationHandler struct {
 	callback    func(valid bool)
 	messageID   uint16
 	timeCreated time.Time
 }
 
+// SendGossipNotifications sends notification messages to all subscribed connections for that particular data type.
 func (s *Server) SendGossipNotifications(notification GossipNotification, validationCallback func(valid bool)) {
 	connections, ok := s.dataTypeToRegisteredConns[notification.DataType]
 	if !ok {
