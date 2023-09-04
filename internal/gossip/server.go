@@ -255,7 +255,7 @@ func (s *Server) handleIncomingBytes(packetBytes []byte, fromAddr net.Addr) {
 }
 
 // sendBytes sends a packet to a select address.
-func (s *Server) sendBytes(packetBytes []byte, address string, receiverIdentity []byte) error {
+func (s *Server) sendBytes(packetBytes []byte, address string, receiverIdentity Identity) error {
 	// Sign
 	signature, err := s.crypto.Sign(packetBytes)
 	if err != nil {
@@ -265,7 +265,7 @@ func (s *Server) sendBytes(packetBytes []byte, address string, receiverIdentity 
 	signedBytes := append(packetBytes, signature...)
 
 	// RSA Encrypt
-	encryptedBytes, err := s.crypto.EncryptRSA(signedBytes, Identity(receiverIdentity))
+	encryptedBytes, err := s.crypto.EncryptRSA(signedBytes, receiverIdentity)
 	if err != nil {
 		zap.L().Warn("Error encrypting outgoing packet", zap.Error(err), zap.String("target_addr", address))
 		return err
@@ -315,7 +315,7 @@ func (s *Server) hasPeerCondition(identity Identity, condition peerCondition) bo
 
 // sendGossipMessage sends a gossip message to a node.
 // This should only be used with nodes that have previously responded with a pull response or accepted a push.
-func (s *Server) sendGossipMessages(address string, receiverIdentity []byte) {
+func (s *Server) sendGossipMessages(address string, receiverIdentity Identity) {
 	s.mutexMessages.RLock()
 	for _, msg := range s.messagesToSpread {
 		if msg.LocalTTL <= 0 {
@@ -353,7 +353,7 @@ func (s *Server) Ping(node *Node, timeout time.Duration) bool {
 		return false
 	}
 
-	err = s.sendBytes(pingPacket.ToBytes(), node.Address, node.Identity.ToBytes())
+	err = s.sendBytes(pingPacket.ToBytes(), node.Address, node.Identity)
 	if err != nil {
 		return false
 	}
@@ -373,7 +373,7 @@ func (s *Server) SendPullRequest(node *Node) {
 		zap.L().Error("Error creating PullRequestPacket", zap.Error(err))
 	}
 	s.addPeerCondition(node.Identity, AllowPull)
-	_ = s.sendBytes(packet.ToBytes(), node.Address, node.Identity.ToBytes())
+	_ = s.sendBytes(packet.ToBytes(), node.Address, node.Identity)
 }
 
 // SendPushRequest sends a gossip push request to a node.
@@ -383,7 +383,7 @@ func (s *Server) SendPushRequest(node *Node) {
 	if err != nil {
 		zap.L().Error("Error creating PushRequestPacket", zap.Error(err))
 	}
-	_ = s.sendBytes(packet.ToBytes(), node.Address, node.Identity.ToBytes())
+	_ = s.sendBytes(packet.ToBytes(), node.Address, node.Identity)
 }
 
 // spreadMessage stores a given message into the servers internal message store, spreading it during push and pulls

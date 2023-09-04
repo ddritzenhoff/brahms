@@ -18,7 +18,7 @@ func (s *Server) handlePing(fromAddr net.Addr, packet PacketPing) {
 		zap.L().Error("Error creating PongPacket", zap.Error(err))
 		return
 	}
-	_ = s.sendBytes(pingPacket.ToBytes(), fromAddr.String(), packet.SenderIdentity.ToBytes())
+	_ = s.sendBytes(pingPacket.ToBytes(), fromAddr.String(), packet.SenderIdentity)
 }
 
 // handlePong handles the pong message type.
@@ -38,9 +38,9 @@ func (s *Server) handlePullRequest(fromAddr net.Addr, packet PacketPullRequest) 
 		zap.L().Warn("Error creating pull response packet", zap.Error(err))
 		return
 	}
-	_ = s.sendBytes(responsePacket.ToBytes(), fromAddr.String(), packet.SenderIdentity.ToBytes())
+	_ = s.sendBytes(responsePacket.ToBytes(), fromAddr.String(), packet.SenderIdentity)
 	s.mutexPullResponseNodes.RUnlock()
-	s.sendGossipMessages(fromAddr.String(), packet.SenderIdentity.ToBytes())
+	s.sendGossipMessages(fromAddr.String(), packet.SenderIdentity)
 }
 
 // handlePullResponse handles the pull response message type.
@@ -67,7 +67,7 @@ func (s *Server) handlePushRequest(fromAddr net.Addr, packet PacketPushRequest) 
 		zap.L().Error("Error creating PushChallengePacket", zap.Error(err))
 		return
 	}
-	_ = s.sendBytes(challengePacket.ToBytes(), fromAddr.String(), packet.SenderIdentity.ToBytes())
+	_ = s.sendBytes(challengePacket.ToBytes(), fromAddr.String(), packet.SenderIdentity)
 }
 
 // handlePushChallenge handles the push challenge message type.
@@ -89,8 +89,8 @@ func (s *Server) handlePushChallenge(fromAddr net.Addr, packet PacketPushChallen
 		return
 	}
 
-	_ = s.sendBytes(pushPacket.ToBytes(), fromAddr.String(), packet.SenderIdentity.ToBytes())
-	s.sendGossipMessages(fromAddr.String(), packet.SenderIdentity.ToBytes())
+	_ = s.sendBytes(pushPacket.ToBytes(), fromAddr.String(), packet.SenderIdentity)
+	s.sendGossipMessages(fromAddr.String(), packet.SenderIdentity)
 }
 
 // handlePush handles the push message type.
