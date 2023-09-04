@@ -15,6 +15,7 @@ import (
 
 // Server represents a tcp listener.
 type Server struct {
+	cfg                       *config.GossipConfig
 	listener                  net.Listener
 	dataTypeToRegisteredConns map[uint16][]net.Conn
 	gossipAnnounceHandlers    []GossipAnnounceHandler
@@ -22,20 +23,26 @@ type Server struct {
 	gossipNotificationLock    sync.Mutex
 }
 
-// StartServer starts listening for tcp connections.
-func StartServer(cfg *config.GossipConfig) (*Server, error) {
-	listener, err := net.Listen("tcp", cfg.ApiAddress)
-	if err != nil {
-		return nil, err
+// NewServer returns a new instance of Server.
+func NewServer(cfg *config.GossipConfig) *Server {
+	return &Server{
+		cfg:                       cfg,
+		dataTypeToRegisteredConns: make(map[uint16][]net.Conn),
 	}
+}
 
-	zap.L().Info("API Server listening", zap.String("address", cfg.ApiAddress))
+// Start starts listening for tcp connections.
+func (s *Server) Start() error {
+	listener, err := net.Listen("tcp", s.cfg.ApiAddress)
+	if err != nil {
+		return err
+	}
+	s.listener = listener
 
-	server := Server{listener: listener, dataTypeToRegisteredConns: make(map[uint16][]net.Conn)}
+	zap.L().Info("API Server listening", zap.String("address", s.cfg.ApiAddress))
 
-	go server.listenForConnections()
-
-	return &server, nil
+	go s.listenForConnections()
+	return nil
 }
 
 // listenForConnections accepts network connection requests and forwards them to handlers.

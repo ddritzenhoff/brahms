@@ -15,6 +15,7 @@ import (
 
 // Server represents a udp listener with handlers for gossip-related messages.
 type Server struct {
+	cfg      *config.GossipConfig
 	listener net.PacketConn
 	ownNode  *Node
 
@@ -72,13 +73,8 @@ const (
 	DenyPush
 )
 
-// StartServer starts the UDP listener at the configured address
-func StartServer(cfg *config.GossipConfig, pushNodes chan Node, pullNodes chan Node, gCrypto *Crypto, apiServer *api.Server) (*Server, error) {
-	listener, err := net.ListenPacket("udp", cfg.GossipAddress)
-	if err != nil {
-		return nil, err
-	}
-
+// NewServer returns a new instance of Server.
+func NewServer(cfg *config.GossipConfig, pushNodes chan Node, pullNodes chan Node, gCrypto *Crypto, apiServer *api.Server) (*Server, error) {
 	challenger, err := challenge.NewChallenger(time.Second*15, 4)
 	if err != nil {
 		return nil, err
@@ -94,7 +90,7 @@ func StartServer(cfg *config.GossipConfig, pushNodes chan Node, pullNodes chan N
 	}
 
 	server := Server{
-		listener:              listener,
+		cfg:                   cfg,
 		ownNode:               ownNode,
 		pushNodes:             pushNodes,
 		pullNodes:             pullNodes,
@@ -112,10 +108,20 @@ func StartServer(cfg *config.GossipConfig, pushNodes chan Node, pullNodes chan N
 		server.spreadMessage(ttl, dataType, data)
 	})
 
-	zap.L().Info("Gossip Server listening", zap.String("address", cfg.GossipAddress))
-	go server.listenForPackets()
-
 	return &server, nil
+}
+
+// Start starts the UDP listener at the configured address
+func (s *Server) Start() error {
+	listener, err := net.ListenPacket("udp", s.cfg.GossipAddress)
+	if err != nil {
+		return err
+	}
+	s.listener = listener
+
+	zap.L().Info("Gossip Server listening", zap.String("address", s.cfg.GossipAddress))
+	go s.listenForPackets()
+	return nil
 }
 
 // ResetPeerStates should be called between two gossip rounds, clearing the servers internal state for peers and decaying messages
@@ -338,6 +344,7 @@ func (s *Server) Ping(node *Node, timeout time.Duration) bool {
 	pongChannel := make(chan struct{}, 1)
 
 	s.mutexPongChannels.Lock()
+	// TODO (ddritzenhoff) actually a little worried string(node.Identity) could cause problems. I remember running into a couple of hiccups while running tests which involved it. A quick remedy would be to use node.String() or ideally node.Identity.String().
 	s.pongChannels[string(node.Identity)] = pongChannel
 	s.mutexPongChannels.Unlock()
 
