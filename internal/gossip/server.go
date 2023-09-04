@@ -60,7 +60,7 @@ type spreadableMessage struct {
 	DataType       uint16
 	Data           []byte
 	DataHash       []byte
-	SourceIdentity []byte
+	SourceIdentity Identity
 }
 
 // A peerCondition is a flag representing a communication state with a remote peer
@@ -184,13 +184,7 @@ func (s *Server) handleIncomingBytes(packetBytes []byte, fromAddr net.Addr) {
 		return
 	}
 
-	senderIdentity, err := NewIdentity(header.SenderIdentity)
-	if err != nil {
-		zap.L().Error("Could not create identity from received gossip packet", zap.Error(err))
-		return
-	}
-
-	err = s.crypto.VerifySignature(packetBytes[:len(packetBytes)-SignatureSize], packetBytes[len(packetBytes)-SignatureSize:], *senderIdentity)
+	err = s.crypto.VerifySignature(packetBytes[:len(packetBytes)-SignatureSize], packetBytes[len(packetBytes)-SignatureSize:], header.SenderIdentity)
 	if err != nil {
 		zap.L().Info("Signature on received gossip packet could not be validated", zap.Error(err), zap.String("sender_address", fromAddr.String()))
 		return
@@ -289,10 +283,10 @@ func (s *Server) sendBytes(packetBytes []byte, address string, receiverIdentity 
 }
 
 // addPeerCondition adds a conditional state to a peer.
-func (s *Server) addPeerCondition(identity []byte, condition peerCondition) {
+func (s *Server) addPeerCondition(identity Identity, condition peerCondition) {
 	s.mutexPeerState.Lock()
 	defer s.mutexPeerState.Unlock()
-	mapKey := string(identity)
+	mapKey := identity.String()
 	if allowedPackets, ok := s.peerState[mapKey]; ok {
 		for _, ap := range allowedPackets {
 			if ap == condition {
@@ -306,10 +300,10 @@ func (s *Server) addPeerCondition(identity []byte, condition peerCondition) {
 }
 
 // hasPeerCondition checks to see if a peer currently has a conditional state associated with it.
-func (s *Server) hasPeerCondition(identity []byte, condition peerCondition) bool {
+func (s *Server) hasPeerCondition(identity Identity, condition peerCondition) bool {
 	s.mutexPeerState.RLock()
 	defer s.mutexPeerState.RUnlock()
-	if allowedPackets, ok := s.peerState[string(identity)]; ok {
+	if allowedPackets, ok := s.peerState[identity.String()]; ok {
 		for _, ap := range allowedPackets {
 			if ap == condition {
 				return true
@@ -344,13 +338,12 @@ func (s *Server) Ping(node *Node, timeout time.Duration) bool {
 	pongChannel := make(chan struct{}, 1)
 
 	s.mutexPongChannels.Lock()
-	// TODO (ddritzenhoff) actually a little worried string(node.Identity) could cause problems. I remember running into a couple of hiccups while running tests which involved it. A quick remedy would be to use node.String() or ideally node.Identity.String().
-	s.pongChannels[string(node.Identity)] = pongChannel
+	s.pongChannels[node.Identity.String()] = pongChannel
 	s.mutexPongChannels.Unlock()
 
 	defer func() {
 		s.mutexPongChannels.Lock()
-		delete(s.pongChannels, string(node.Identity))
+		delete(s.pongChannels, node.Identity.String())
 		s.mutexPongChannels.Unlock()
 	}()
 
@@ -360,7 +353,7 @@ func (s *Server) Ping(node *Node, timeout time.Duration) bool {
 		return false
 	}
 
-	err = s.sendBytes(pingPacket.ToBytes(), node.Address, node.Identity)
+	err = s.sendBytes(pingPacket.ToBytes(), node.Address, node.Identity.ToBytes())
 	if err != nil {
 		return false
 	}
@@ -380,7 +373,7 @@ func (s *Server) SendPullRequest(node *Node) {
 		zap.L().Error("Error creating PullRequestPacket", zap.Error(err))
 	}
 	s.addPeerCondition(node.Identity, AllowPull)
-	_ = s.sendBytes(packet.ToBytes(), node.Address, node.Identity)
+	_ = s.sendBytes(packet.ToBytes(), node.Address, node.Identity.ToBytes())
 }
 
 // SendPushRequest sends a gossip push request to a node.
@@ -390,7 +383,7 @@ func (s *Server) SendPushRequest(node *Node) {
 	if err != nil {
 		zap.L().Error("Error creating PushRequestPacket", zap.Error(err))
 	}
-	_ = s.sendBytes(packet.ToBytes(), node.Address, node.Identity)
+	_ = s.sendBytes(packet.ToBytes(), node.Address, node.Identity.ToBytes())
 }
 
 // spreadMessage stores a given message into the servers internal message store, spreading it during push and pulls

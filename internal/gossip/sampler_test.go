@@ -54,7 +54,7 @@ func TestSampler_Next(t *testing.T) {
 		if sampler.elem.Address != node.Address {
 			t.Error("Sampler did not replace internal node Address")
 		}
-		if !bytes.Equal(sampler.elem.Identity, node.Identity) {
+		if !bytes.Equal(sampler.elem.Identity.ToBytes(), node.Identity.ToBytes()) {
 			t.Error("Sampler did not replace internal node Identity")
 		}
 		if bytes.Equal(sampler.currentElemHash, ffSlice) {
@@ -86,7 +86,7 @@ func TestSampler_Next(t *testing.T) {
 		if sampler.elem.Address != oldNode.Address {
 			t.Error("Sampler replaced internal node Address")
 		}
-		if !bytes.Equal(sampler.elem.Identity, oldNode.Identity) {
+		if !bytes.Equal(sampler.elem.Identity.ToBytes(), oldNode.Identity.ToBytes()) {
 			t.Error("Sampler replaced internal node Identity")
 		}
 		if !bytes.Equal(sampler.currentElemHash, zeroSlice) {
@@ -115,7 +115,7 @@ func TestSampler_Sample(t *testing.T) {
 		if sampledNode.Address != mockAddr1 {
 			t.Error("Sampler did not return internal node reference Address")
 		}
-		if !bytes.Equal(sampledNode.Identity, mockIdentity1) {
+		if !bytes.Equal(sampledNode.Identity.ToBytes(), mockIdentity1) {
 			t.Error("Sampler did not return internal node reference Identity")
 		}
 	})
@@ -187,13 +187,13 @@ func TestSamplerGroup_Update(t *testing.T) {
 		if sg.samplers[0].elem.Address != node1.Address {
 			t.Error("SamplerGroup updated first Sampler Address")
 		}
-		if !bytes.Equal(sg.samplers[0].elem.Identity, node1.Identity) {
+		if !bytes.Equal(sg.samplers[0].elem.Identity.ToBytes(), node1.Identity.ToBytes()) {
 			t.Error("SamplerGroup updated first Sampler Identity")
 		}
 		if sg.samplers[1].elem.Address != node3.Address {
 			t.Error("SamplerGroup did not update second Sampler Address")
 		}
-		if !bytes.Equal(sg.samplers[1].elem.Identity, node3.Identity) {
+		if !bytes.Equal(sg.samplers[1].elem.Identity.ToBytes(), node3.Identity.ToBytes()) {
 			t.Error("SamplerGroup did not update second Sampler Identity")
 		}
 	})
@@ -241,7 +241,7 @@ func TestSamplerGroup_SampleAll(t *testing.T) {
 		if len(internalNodes) != 2 {
 			t.Error("SamplerGroup did not return all internal nodes")
 		}
-		if internalNodes[0].Address != node1.Address || !bytes.Equal(internalNodes[0].Identity, node1.Identity) || internalNodes[1].Address != node2.Address || !bytes.Equal(internalNodes[1].Identity, node2.Identity) {
+		if internalNodes[0].Address != node1.Address || !bytes.Equal(internalNodes[0].Identity.ToBytes(), node1.Identity.ToBytes()) || internalNodes[1].Address != node2.Address || !bytes.Equal(internalNodes[1].Identity.ToBytes(), node2.Identity.ToBytes()) {
 			t.Error("SamplerGroup did not return correct internal nodes")
 		}
 	})

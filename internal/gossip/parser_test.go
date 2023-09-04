@@ -12,10 +12,15 @@ func TestParsePacketHeader(t *testing.T) {
 	t.Parallel()
 	t.Run("packet header is parsed successfully", func(t *testing.T) {
 		var mockSize uint16 = 36
+		temp := sha256.Sum256(nil)
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		ph := PacketHeader{
 			Size:           mockSize,
 			Type:           MessageTypeGossipPing,
-			SenderIdentity: make([]byte, IdentitySize),
+			SenderIdentity: *mockSenderIdentity,
 		}
 
 		phParse, err := ParsePacketHeader(ph.ToBytes())
@@ -28,30 +33,40 @@ func TestParsePacketHeader(t *testing.T) {
 		if phParse.Type != MessageTypeGossipPing {
 			t.Errorf("phParse.Type incorrect: expected 0x0030, received %x", phParse.Type)
 		}
-		if !bytes.Equal(phParse.SenderIdentity, ph.SenderIdentity) {
+		if !bytes.Equal(phParse.SenderIdentity.ToBytes(), ph.SenderIdentity.ToBytes()) {
 			t.Errorf("phParse.SenderIdentity incorrect: expected %v, received %v", ph.SenderIdentity, phParse.SenderIdentity)
 		}
 	})
 	t.Run("ErrParsePacketHeaderInvalidSize when the header isn't of size PacketHeaderSize", func(t *testing.T) {
+		temp := sha256.Sum256(nil)
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		ph := PacketHeader{
 			Size:           36,
 			Type:           MessageTypeGossipPing,
-			SenderIdentity: make([]byte, IdentitySize),
+			SenderIdentity: *mockSenderIdentity,
 		}
 
-		_, err := ParsePacketHeader(ph.ToBytes()[:35])
+		_, err = ParsePacketHeader(ph.ToBytes()[:35])
 		if err != ErrParsePacketHeaderInvalidSize {
 			t.Errorf("expecting ErrParsePacketHeaderInvalidSize, got %v", err)
 		}
 	})
 	t.Run("ErrParsePacketHeaderInvalidType if the packet type is not supported", func(t *testing.T) {
+		temp := sha256.Sum256(nil)
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		ph := PacketHeader{
 			Size:           36,
 			Type:           MessageType(0x0000),
-			SenderIdentity: make([]byte, IdentitySize),
+			SenderIdentity: *mockSenderIdentity,
 		}
 
-		_, err := ParsePacketHeader(ph.ToBytes())
+		_, err = ParsePacketHeader(ph.ToBytes())
 		if err != ErrParsePacketHeaderInvalidType {
 			t.Errorf("expecting ErrParsePacketHeaderInvalidType, got %v", err)
 		}
@@ -80,12 +95,15 @@ func TestParsePacketPing(t *testing.T) {
 	t.Run("packet ping is parsed successfully", func(t *testing.T) {
 		// total size of Ping packet must be 2 (Size, uint16) + 2 (Type, uint16) + 32 (SenderIdentity) + 64 (Signature) = 100 bytes
 		temp := sha256.Sum256(nil)
-		mockSenderIdentity := temp[:]
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		mockSignature := createMockSignature()
 		ph := PacketHeader{
 			Size:           100,
 			Type:           MessageTypeGossipPing,
-			SenderIdentity: mockSenderIdentity,
+			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
 			Signature: mockSignature,
@@ -100,7 +118,7 @@ func TestParsePacketPing(t *testing.T) {
 		if reader.Len() != 100 {
 			t.Errorf("expecting 100, got %d", reader.Len())
 		}
-		_, err := reader.Seek(int64(PacketHeaderSize), io.SeekStart)
+		_, err = reader.Seek(int64(PacketHeaderSize), io.SeekStart)
 		if err != nil {
 			t.Error(err)
 		}
@@ -120,7 +138,7 @@ func TestParsePacketPing(t *testing.T) {
 		if pingPacket.Type != MessageTypeGossipPing {
 			t.Errorf("pingPacket.Type incorrect: expected 0x0030, received %x", pingPacket.Type)
 		}
-		if !bytes.Equal(pingPacket.SenderIdentity, mockSenderIdentity) {
+		if !bytes.Equal(pingPacket.SenderIdentity.ToBytes(), mockSenderIdentity.ToBytes()) {
 			t.Errorf("pingPacket.SenderIdentity incorrect: expected %v, received %v", mockSenderIdentity, pingPacket.SenderIdentity)
 		}
 		if !bytes.Equal(pingPacket.Signature, mockSignature) {
@@ -135,12 +153,15 @@ func TestParsePacketPong(t *testing.T) {
 	t.Run("packet pong is parsed successfully", func(t *testing.T) {
 		mockMessageType := MessageTypeGossipPong
 		temp := sha256.Sum256(nil)
-		mockSenderIdentity := temp[:]
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		mockSignature := createMockSignature()
 		ph := PacketHeader{
 			Size:           100,
 			Type:           mockMessageType,
-			SenderIdentity: mockSenderIdentity,
+			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
 			Signature: mockSignature,
@@ -154,7 +175,7 @@ func TestParsePacketPong(t *testing.T) {
 		if reader.Len() != 100 {
 			t.Errorf("expecting 100, got %d", reader.Len())
 		}
-		_, err := reader.Seek(int64(PacketHeaderSize), io.SeekStart)
+		_, err = reader.Seek(int64(PacketHeaderSize), io.SeekStart)
 		if err != nil {
 			t.Error(err)
 		}
@@ -174,7 +195,7 @@ func TestParsePacketPong(t *testing.T) {
 		if pongPacket.Type != mockMessageType {
 			t.Errorf("Type attribute incorrect: expected 0x0030, received %x", pongPacket.Type)
 		}
-		if !bytes.Equal(pongPacket.SenderIdentity, mockSenderIdentity) {
+		if !bytes.Equal(pongPacket.SenderIdentity.ToBytes(), mockSenderIdentity.ToBytes()) {
 			t.Errorf("SenderIdentity attribute incorrect: expected %v, received %v", mockSenderIdentity, pongPacket.SenderIdentity)
 		}
 		if !bytes.Equal(pongPacket.Signature, mockSignature) {
@@ -188,12 +209,15 @@ func TestParsePacketPullRequest(t *testing.T) {
 	t.Run("packet pull request is parsed successfully", func(t *testing.T) {
 		mockMessageType := MessageTypeGossipPullRequest
 		temp := sha256.Sum256(nil)
-		mockSenderIdentity := temp[:]
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		mockSignature := createMockSignature()
 		ph := PacketHeader{
 			Size:           100,
 			Type:           mockMessageType,
-			SenderIdentity: mockSenderIdentity,
+			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
 			Signature: mockSignature,
@@ -207,7 +231,7 @@ func TestParsePacketPullRequest(t *testing.T) {
 		if reader.Len() != 100 {
 			t.Errorf("expecting 100, got %d", reader.Len())
 		}
-		_, err := reader.Seek(int64(PacketHeaderSize), io.SeekStart)
+		_, err = reader.Seek(int64(PacketHeaderSize), io.SeekStart)
 		if err != nil {
 			t.Error(err)
 		}
@@ -227,7 +251,7 @@ func TestParsePacketPullRequest(t *testing.T) {
 		if pullRequest.Type != mockMessageType {
 			t.Errorf("Type attribute incorrect: expected 0x0030, received %x", pullRequest.Type)
 		}
-		if !bytes.Equal(pullRequest.SenderIdentity, mockSenderIdentity) {
+		if !bytes.Equal(pullRequest.SenderIdentity.ToBytes(), mockSenderIdentity.ToBytes()) {
 			t.Errorf("SenderIdentity attribute incorrect: expected %v, received %v", mockSenderIdentity, pullRequest.SenderIdentity)
 		}
 		if !bytes.Equal(pullRequest.Signature, mockSignature) {
@@ -265,13 +289,13 @@ func TestParseNodes(t *testing.T) {
 			t.Errorf("len(nodes) incorrect: expected 2, received %d", len(nodes))
 		}
 
-		if !bytes.Equal(nodes[0].Identity, mockIdentity1) {
+		if !bytes.Equal(nodes[0].Identity.ToBytes(), mockIdentity1) {
 			t.Errorf("nodes[0].Identity incorrect: expected %v, received %v", mockIdentity1, nodes[0].Identity)
 		}
 		if nodes[0].Address != mockAddr1 {
 			t.Errorf("nodes[0].Address incorrect: expected %s, received %s", mockAddr1, nodes[0].Address)
 		}
-		if !bytes.Equal(nodes[1].Identity, mockIdentity2) {
+		if !bytes.Equal(nodes[1].Identity.ToBytes(), mockIdentity2) {
 			t.Errorf("nodes[1].Identity incorrect: expected %v, received %v", mockIdentity2, nodes[1].Identity)
 		}
 		if nodes[1].Address != mockAddr2 {
@@ -294,7 +318,7 @@ func TestParseNodes(t *testing.T) {
 		if len(nodes) != 1 {
 			t.Errorf("len(nodes) incorrect: expected 1, received %d", len(nodes))
 		}
-		if !bytes.Equal(nodes[0].Identity, mockIdentity1) {
+		if !bytes.Equal(nodes[0].Identity.ToBytes(), mockIdentity1) {
 			t.Errorf("nodes[0].Identity incorrect: expected %v, received %v", mockIdentity1, nodes[0].Identity)
 		}
 		if nodes[0].Address != mockAddr1 {
@@ -324,12 +348,15 @@ func TestParsePacketPullResponse(t *testing.T) {
 		expectedSize := PacketHeaderSize + len(mockNodes) + SignatureSize
 		mockMessageType := MessageTypeGossipPullResponse
 		temp := sha256.Sum256(nil)
-		mockSenderIdentity := temp[:]
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		mockSignature := createMockSignature()
 		ph := PacketHeader{
 			Size:           uint16(expectedSize),
 			Type:           mockMessageType,
-			SenderIdentity: mockSenderIdentity,
+			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
 			Signature: mockSignature,
@@ -363,7 +390,7 @@ func TestParsePacketPullResponse(t *testing.T) {
 		if pullResponse.Type != mockMessageType {
 			t.Errorf("Type attribute incorrect: expected 0x0030, received %x", pullResponse.Type)
 		}
-		if !bytes.Equal(pullResponse.SenderIdentity, mockSenderIdentity) {
+		if !bytes.Equal(pullResponse.SenderIdentity.ToBytes(), mockSenderIdentity.ToBytes()) {
 			t.Errorf("SenderIdentity attribute incorrect: expected %v, received %v", mockSenderIdentity, pullResponse.SenderIdentity)
 		}
 		if !bytes.Equal(pullResponse.Signature, mockSignature) {
@@ -372,13 +399,13 @@ func TestParsePacketPullResponse(t *testing.T) {
 		if len(pullResponse.Nodes) != 2 {
 			t.Errorf("len(nodes) incorrect: expected 2, received %d", len(pullResponse.Nodes))
 		}
-		if !bytes.Equal(pullResponse.Nodes[0].Identity, mockIdentity1) {
+		if !bytes.Equal(pullResponse.Nodes[0].Identity.ToBytes(), mockIdentity1) {
 			t.Errorf("nodes[0].Identity incorrect: expected %v, received %v", mockIdentity1, pullResponse.Nodes[0].Identity)
 		}
 		if pullResponse.Nodes[0].Address != mockAddr1 {
 			t.Errorf("nodes[0].Address incorrect: expected %s, received %s", mockAddr1, pullResponse.Nodes[0].Address)
 		}
-		if !bytes.Equal(pullResponse.Nodes[1].Identity, mockIdentity2) {
+		if !bytes.Equal(pullResponse.Nodes[1].Identity.ToBytes(), mockIdentity2) {
 			t.Errorf("nodes[1].Identity incorrect: expected %v, received %v", mockIdentity2, pullResponse.Nodes[1].Identity)
 		}
 		if pullResponse.Nodes[1].Address != mockAddr2 {
@@ -392,12 +419,15 @@ func TestParsePacketPushRequest(t *testing.T) {
 	t.Run("packet push request is parsed successfully", func(t *testing.T) {
 		mockMessageType := MessageTypeGossipPushRequest
 		temp := sha256.Sum256(nil)
-		mockSenderIdentity := temp[:]
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		mockSignature := createMockSignature()
 		ph := PacketHeader{
 			Size:           100,
 			Type:           mockMessageType,
-			SenderIdentity: mockSenderIdentity,
+			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
 			Signature: mockSignature,
@@ -411,7 +441,7 @@ func TestParsePacketPushRequest(t *testing.T) {
 		if reader.Len() != 100 {
 			t.Errorf("expecting 100, got %d", reader.Len())
 		}
-		_, err := reader.Seek(int64(PacketHeaderSize), io.SeekStart)
+		_, err = reader.Seek(int64(PacketHeaderSize), io.SeekStart)
 		if err != nil {
 			t.Error(err)
 		}
@@ -431,7 +461,7 @@ func TestParsePacketPushRequest(t *testing.T) {
 		if pushRequest.Type != mockMessageType {
 			t.Errorf("Type attribute incorrect: expected 0x0030, received %x", pushRequest.Type)
 		}
-		if !bytes.Equal(pushRequest.SenderIdentity, mockSenderIdentity) {
+		if !bytes.Equal(pushRequest.SenderIdentity.ToBytes(), mockSenderIdentity.ToBytes()) {
 			t.Errorf("SenderIdentity attribute incorrect: expected %v, received %v", mockSenderIdentity, pushRequest.SenderIdentity)
 		}
 		if !bytes.Equal(pushRequest.Signature, mockSignature) {
@@ -445,13 +475,16 @@ func TestParsePacketPushChallenge(t *testing.T) {
 	t.Run("packet push challenge is parsed successfully", func(t *testing.T) {
 		mockMessageType := MessageTypeGossipPushChallenge
 		temp := sha256.Sum256(nil)
-		mockSenderIdentity := temp[:]
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		mockSignature := createMockSignature()
 		expectedSize := PacketHeaderSize + 4 + challenge.ChallengeSize + SignatureSize
 		ph := PacketHeader{
 			Size:           uint16(expectedSize),
 			Type:           mockMessageType,
-			SenderIdentity: mockSenderIdentity,
+			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
 			Signature: mockSignature,
@@ -469,7 +502,7 @@ func TestParsePacketPushChallenge(t *testing.T) {
 		if reader.Len() != expectedSize {
 			t.Errorf("expecting %d, got %d", expectedSize, reader.Len())
 		}
-		_, err := reader.Seek(int64(PacketHeaderSize), io.SeekStart)
+		_, err = reader.Seek(int64(PacketHeaderSize), io.SeekStart)
 		if err != nil {
 			t.Error(err)
 		}
@@ -485,7 +518,7 @@ func TestParsePacketPushChallenge(t *testing.T) {
 		if pushChallenge.Type != mockMessageType {
 			t.Errorf("Type attribute incorrect: expected 0x0051, received %x", pushChallenge.Type)
 		}
-		if !bytes.Equal(pushChallenge.SenderIdentity, mockSenderIdentity) {
+		if !bytes.Equal(pushChallenge.SenderIdentity.ToBytes(), mockSenderIdentity.ToBytes()) {
 			t.Errorf("SenderIdentity attribute incorrect: expected %v, received %v", mockSenderIdentity, pushChallenge.SenderIdentity)
 		}
 		if !bytes.Equal(pushChallenge.Signature, mockSignature) {
@@ -513,13 +546,16 @@ func TestParsePacketPush(t *testing.T) {
 
 		mockMessageType := MessageTypeGossipPush
 		temp := sha256.Sum256(nil)
-		mockSenderIdentity := temp[:]
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		mockSignature := createMockSignature()
 		expectedSize := PacketHeaderSize + challenge.ChallengeSize + challenge.NonceSize + len(mockNodes) + SignatureSize
 		ph := PacketHeader{
 			Size:           uint16(expectedSize),
 			Type:           mockMessageType,
-			SenderIdentity: mockSenderIdentity,
+			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
 			Signature: mockSignature,
@@ -555,7 +591,7 @@ func TestParsePacketPush(t *testing.T) {
 		if push.Type != mockMessageType {
 			t.Errorf("Type attribute incorrect: expected 0x0052, received %x", push.Type)
 		}
-		if !bytes.Equal(push.SenderIdentity, mockSenderIdentity) {
+		if !bytes.Equal(push.SenderIdentity.ToBytes(), mockSenderIdentity.ToBytes()) {
 			t.Errorf("SenderIdentity attribute incorrect: expected %v, received %v", mockSenderIdentity, push.SenderIdentity)
 		}
 		if !bytes.Equal(push.Signature, mockSignature) {
@@ -567,7 +603,7 @@ func TestParsePacketPush(t *testing.T) {
 		if !bytes.Equal(push.Nonce, sliceRepeat(challenge.NonceSize, byte(0x42))) {
 			t.Errorf("Nonce attribute incorrect: expected %v, received %v", sliceRepeat(challenge.NonceSize, byte(0x42)), push.Nonce)
 		}
-		if !bytes.Equal(push.Node.Identity, mockIdentity1) {
+		if !bytes.Equal(push.Node.Identity.ToBytes(), mockIdentity1) {
 			t.Errorf("Node.Identity attribute incorrect: expected %v, received %v", mockIdentity1, push.Node.Identity)
 		}
 		if push.Node.Address != mockAddr1 {
@@ -583,14 +619,17 @@ func TestParsePacketMessage(t *testing.T) {
 		mockTTL := 5
 		mockMessageType := MessageTypeGossipMessage
 		temp := sha256.Sum256(nil)
-		mockSenderIdentity := temp[:]
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		mockSignature := createMockSignature()
 		// 1 --> TTL, 1 --> reserved, 2 --> DataType
 		expectedSize := PacketHeaderSize + 1 + 1 + 2 + len(mockData) + SignatureSize
 		ph := PacketHeader{
 			Size:           uint16(expectedSize),
 			Type:           mockMessageType,
-			SenderIdentity: mockSenderIdentity,
+			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
 			Signature: mockSignature,
@@ -607,7 +646,7 @@ func TestParsePacketMessage(t *testing.T) {
 		if reader.Len() != expectedSize {
 			t.Errorf("expecting %d, got %d", expectedSize, reader.Len())
 		}
-		_, err := reader.Seek(int64(PacketHeaderSize), io.SeekStart)
+		_, err = reader.Seek(int64(PacketHeaderSize), io.SeekStart)
 		if err != nil {
 			t.Error(err)
 		}
@@ -626,7 +665,7 @@ func TestParsePacketMessage(t *testing.T) {
 		if message.Type != mockMessageType {
 			t.Errorf("Type attribute incorrect: expected 0x0052, received %x", message.Type)
 		}
-		if !bytes.Equal(message.SenderIdentity, mockSenderIdentity) {
+		if !bytes.Equal(message.SenderIdentity.ToBytes(), mockSenderIdentity.ToBytes()) {
 			t.Errorf("SenderIdentity attribute incorrect: expected %v, received %v", mockSenderIdentity, message.SenderIdentity)
 		}
 		if !bytes.Equal(message.Signature, mockSignature) {

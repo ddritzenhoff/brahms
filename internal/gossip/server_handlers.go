@@ -18,7 +18,7 @@ func (s *Server) handlePing(fromAddr net.Addr, packet PacketPing) {
 		zap.L().Error("Error creating PongPacket", zap.Error(err))
 		return
 	}
-	_ = s.sendBytes(pingPacket.ToBytes(), fromAddr.String(), packet.SenderIdentity)
+	_ = s.sendBytes(pingPacket.ToBytes(), fromAddr.String(), packet.SenderIdentity.ToBytes())
 }
 
 // handlePong handles the pong message type.
@@ -38,9 +38,9 @@ func (s *Server) handlePullRequest(fromAddr net.Addr, packet PacketPullRequest) 
 		zap.L().Warn("Error creating pull response packet", zap.Error(err))
 		return
 	}
-	_ = s.sendBytes(responsePacket.ToBytes(), fromAddr.String(), packet.SenderIdentity)
+	_ = s.sendBytes(responsePacket.ToBytes(), fromAddr.String(), packet.SenderIdentity.ToBytes())
 	s.mutexPullResponseNodes.RUnlock()
-	s.sendGossipMessages(fromAddr.String(), packet.SenderIdentity)
+	s.sendGossipMessages(fromAddr.String(), packet.SenderIdentity.ToBytes())
 }
 
 // handlePullResponse handles the pull response message type.
@@ -57,7 +57,7 @@ func (s *Server) handlePullResponse(_ net.Addr, packet PacketPullResponse) {
 
 // handlePushRequest handles the push request message type.
 func (s *Server) handlePushRequest(fromAddr net.Addr, packet PacketPushRequest) {
-	newChallenge, err := s.challenger.NewChallenge(packet.SenderIdentity)
+	newChallenge, err := s.challenger.NewChallenge(packet.SenderIdentity.ToBytes())
 	if err != nil {
 		zap.L().Warn("Error generating challenge", zap.Error(err))
 		return
@@ -67,7 +67,7 @@ func (s *Server) handlePushRequest(fromAddr net.Addr, packet PacketPushRequest) 
 		zap.L().Error("Error creating PushChallengePacket", zap.Error(err))
 		return
 	}
-	_ = s.sendBytes(challengePacket.ToBytes(), fromAddr.String(), packet.SenderIdentity)
+	_ = s.sendBytes(challengePacket.ToBytes(), fromAddr.String(), packet.SenderIdentity.ToBytes())
 }
 
 // handlePushChallenge handles the push challenge message type.
@@ -89,8 +89,8 @@ func (s *Server) handlePushChallenge(fromAddr net.Addr, packet PacketPushChallen
 		return
 	}
 
-	_ = s.sendBytes(pushPacket.ToBytes(), fromAddr.String(), packet.SenderIdentity)
-	s.sendGossipMessages(fromAddr.String(), packet.SenderIdentity)
+	_ = s.sendBytes(pushPacket.ToBytes(), fromAddr.String(), packet.SenderIdentity.ToBytes())
+	s.sendGossipMessages(fromAddr.String(), packet.SenderIdentity.ToBytes())
 }
 
 // handlePush handles the push message type.
@@ -101,14 +101,14 @@ func (s *Server) handlePush(_ net.Addr, packet PacketPush) {
 	}
 	s.addPeerCondition(packet.SenderIdentity, DenyPush)
 
-	challengeOk, err := s.challenger.IsSolvedCorrectly(packet.Challenge, packet.Nonce, packet.SenderIdentity, int(s.challengeDifficulty))
+	challengeOk, err := s.challenger.IsSolvedCorrectly(packet.Challenge, packet.Nonce, packet.SenderIdentity.ToBytes(), int(s.challengeDifficulty))
 	if err != nil {
 		zap.L().Warn("Error during challenge verification", zap.Error(err))
 	}
 	if !challengeOk {
 		return
 	}
-	if !bytes.Equal(packet.SenderIdentity, packet.Node.Identity) {
+	if !bytes.Equal(packet.SenderIdentity.ToBytes(), packet.Node.Identity.ToBytes()) {
 		zap.L().Warn("Node tried pushing reference to a third party node, rejected.", zap.String("sender_identity", string(packet.SenderIdentity)))
 		return
 	}
@@ -132,7 +132,7 @@ func (s *Server) handleMessage(fromAddr net.Addr, packet PacketMessage) {
 		if msg.DataType == packet.DataType && bytes.Equal(msg.DataHash, dataHash) {
 			return
 		}
-		if bytes.Equal(packet.SenderIdentity, msg.SourceIdentity) {
+		if bytes.Equal(packet.SenderIdentity.ToBytes(), msg.SourceIdentity.ToBytes()) {
 			messagesSameSource++
 		}
 	}

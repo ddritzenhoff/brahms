@@ -34,7 +34,7 @@ func (s *Sampler) Init() error {
 // Next applies the random min-wise independent hash function to the passed-in Node, keeping whichever node has the lower hash value.
 func (s *Sampler) Next(newElem Node) {
 	hashFunc := sha256.New()
-	_, err := hashFunc.Write(append(s.bias, newElem.Identity...))
+	_, err := hashFunc.Write(append(s.bias, newElem.Identity.ToBytes()...))
 	if err != nil {
 		zap.L().Panic("Unexpected error during hash calculation", zap.Error(err))
 	}
