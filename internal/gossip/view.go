@@ -11,28 +11,24 @@ type View struct {
 }
 
 // NewView creates a new View object with an empty slice of Nodes unless `WithBootstrapNodes` is additionally passed in.
-func NewView(options ...Option) (*View, error) {
+func NewView(options ...Option) *View {
 	v := &View{
 		nodes: make([]Node, 0, 30),
 	}
 
 	for _, option := range options {
-		err := option(v)
-		if err != nil {
-			return nil, err
-		}
+		option(v)
 	}
-	return v, nil
+	return v
 }
 
 // Option represents a functional option for the View's 'constructor'.
-type Option func(*View) error
+type Option func(*View)
 
 // WithBootstrapNodes sets the view's Nodes parameter to a collection of 'bootstrap' nodes. Note that this overwrites any other nodes that may have been there before.
 func WithBootstrapNodes(nodes []Node) Option {
-	return func(v *View) error {
+	return func(v *View) {
 		v.nodes = nodes
-		return nil
 	}
 }
 
