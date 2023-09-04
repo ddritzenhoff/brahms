@@ -121,13 +121,11 @@ func TestSampler_Sample(t *testing.T) {
 	})
 }
 
-func TestSamplerGroup_Init(t *testing.T) {
+func TestSamplerGroup_NewSampler(t *testing.T) {
 	t.Parallel()
 
 	t.Run("SamplerGroup is initialized correctly", func(t *testing.T) {
-		sg := SamplerGroup{}
-		err := sg.Init(10)
-
+		sg, err := NewSamplerGroup(10)
 		if err != nil {
 			t.Error(err)
 		}

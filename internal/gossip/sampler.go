@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"errors"
+	"fmt"
+	"math/big"
 
 	"go.uber.org/zap"
 )
@@ -54,20 +56,23 @@ type SamplerGroup struct {
 	samplers []Sampler
 }
 
-// Init creates an initialized collection of Samplers.
-func (sg *SamplerGroup) Init(size int) error {
+// NewSamplerGroup creates an initialized collection of Samplers.
+func NewSamplerGroup(size int) (*SamplerGroup, error) {
 	if size <= 0 {
-		return ErrInvalidSamplerAmount
+		return nil, ErrInvalidSamplerAmount
 	}
-	sg.samplers = make([]Sampler, size)
-	for i, s := range sg.samplers {
+	samplers := make([]Sampler, size)
+	for i, s := range samplers {
 		err := s.Init()
 		if err != nil {
-			return err
+			return nil, err
 		}
-		sg.samplers[i] = s
+		samplers[i] = s
 	}
-	return nil
+
+	return &SamplerGroup{
+		samplers: samplers,
+	}, nil
 }
 
 // Update invokes the min-wise indepedent hash function for each sampler with the given elements.
@@ -78,6 +83,37 @@ func (sg *SamplerGroup) Update(newElems []Node) {
 			sg.samplers[i] = s
 		}
 	}
+}
+
+// RandomSubset returns a random subset of length n of the ViewList.
+func (sg *SamplerGroup) RandomNodeSubset(n int) ([]*Node, error) {
+	if n > len(sg.samplers) || n <= 0 {
+		return nil, fmt.Errorf("RandomSubset: required size between 0 (non-inclusive) and |sg.samplers|")
+	}
+	copySlice := make([]*Sampler, len(sg.samplers))
+	for ii := 0; ii < len(sg.samplers); ii++ {
+		copySlice = append(copySlice, &sg.samplers[ii])
+	}
+	for i := n - 1; i > 0; i-- {
+		// Generate a random index between 0 and i (inclusive)
+		bigJ, err := rand.Int(rand.Reader, big.NewInt(int64(i+1)))
+		if err != nil {
+			return nil, err
+		}
+		if !bigJ.IsInt64() {
+			return nil, fmt.Errorf("j is not of type int64: %s", bigJ.String())
+		}
+		j := bigJ.Int64()
+
+		// Swap the elements at i and j
+		copySlice[i], copySlice[j] = copySlice[j], copySlice[i]
+	}
+
+	nodes := make([]*Node, n)
+	for ii := 0; ii < n; ii++ {
+		nodes = append(nodes, copySlice[ii].Sample())
+	}
+	return nodes, nil
 }
 
 // SampleAll samples each sampler within the collection.
