@@ -17,23 +17,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// Identity represents a SHA256 hash of a public key.
-type Identity string
-
-// NewIdentity generates a new Identity given a string if it is of the correct size.
-func NewIdentity(hash []byte) (*Identity, error) {
-	if len(hash) != sha256.Size {
-		return nil, fmt.Errorf("id of wrong size: expected %d, received %d", sha256.Size, len(hash))
-	}
-	id := Identity(hash[:])
-	return &id, nil
-}
-
-// String represents the Identity as an uppercase hex-encoded string.
-func (id Identity) String() string {
-	return hex.EncodeToString([]byte(id))
-}
-
 // Crypto represents a container for all of the cryptographic functionality within the gossip protocol.
 type Crypto struct {
 	cfg *config.GossipConfig

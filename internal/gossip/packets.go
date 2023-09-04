@@ -39,7 +39,7 @@ var (
 type PacketHeader struct {
 	Size           uint16      // 2
 	Type           MessageType // 2
-	SenderIdentity []byte      // 32
+	SenderIdentity Identity    // 32
 }
 
 // PacketFooter represents the footer component of each packet
@@ -54,7 +54,7 @@ type PacketPing struct {
 }
 
 // NewPacketPing returns a new instance of PacketPing.
-func NewPacketPing(senderID []byte) (*PacketPing, error) {
+func NewPacketPing(senderID Identity) (*PacketPing, error) {
 	if len(senderID) != PeerIdentitySize {
 		return nil, ErrCreatePacketInvalidComponentSize
 	}
@@ -77,7 +77,7 @@ type PacketPong struct {
 }
 
 // NewPacketPong returns a new instance of PacketPong.
-func NewPacketPong(senderID []byte) (*PacketPing, error) {
+func NewPacketPong(senderID Identity) (*PacketPing, error) {
 	if len(senderID) != PeerIdentitySize {
 		return nil, ErrCreatePacketInvalidComponentSize
 	}
@@ -100,7 +100,7 @@ type PacketPullRequest struct {
 }
 
 // NewPacketPullRequest returns a new instance of PacketPullRequest.
-func NewPacketPullRequest(senderID []byte) (*PacketPullRequest, error) {
+func NewPacketPullRequest(senderID Identity) (*PacketPullRequest, error) {
 	if len(senderID) != PeerIdentitySize {
 		return nil, ErrCreatePacketInvalidComponentSize
 	}
@@ -124,7 +124,7 @@ type PacketPullResponse struct {
 }
 
 // NewPacketPullResponse returns a new instance of PacketPullResponse.
-func NewPacketPullResponse(senderID []byte, nodes []Node) (*PacketPullResponse, error) {
+func NewPacketPullResponse(senderID Identity, nodes []Node) (*PacketPullResponse, error) {
 	packetSize := PacketHeaderSize + SignatureSize
 	for _, node := range nodes {
 		packetSize += len(node.ToBytes())
@@ -152,7 +152,7 @@ type PacketPushRequest struct {
 }
 
 // NewPacketPushRequest returns a new instance of PacketPushRequest.
-func NewPacketPushRequest(senderID []byte) (*PacketPushRequest, error) {
+func NewPacketPushRequest(senderID Identity) (*PacketPushRequest, error) {
 	if len(senderID) != PeerIdentitySize {
 		return nil, ErrCreatePacketInvalidComponentSize
 	}
@@ -177,7 +177,7 @@ type PacketPushChallenge struct {
 }
 
 // NewPacketPushChallenge returns a new instance of PacketPushChallenge.
-func NewPacketPushChallenge(senderID []byte, difficulty uint32, challenge []byte) (*PacketPushChallenge, error) {
+func NewPacketPushChallenge(senderID Identity, difficulty uint32, challenge []byte) (*PacketPushChallenge, error) {
 	if len(senderID) != PeerIdentitySize || len(challenge) != challengeModule.ChallengeSize {
 		return nil, ErrCreatePacketInvalidComponentSize
 	}
@@ -205,7 +205,7 @@ type PacketPush struct {
 }
 
 // NewPacketPush returns a new instance of PacketPush.
-func NewPacketPush(senderID []byte, challenge []byte, nonce []byte, node Node) (*PacketPush, error) {
+func NewPacketPush(senderID Identity, challenge []byte, nonce []byte, node Node) (*PacketPush, error) {
 	packetSize := PacketHeaderSize + SignatureSize + challengeModule.ChallengeSize + challengeModule.NonceSize + len(node.ToBytes())
 	if len(senderID) != PeerIdentitySize || len(challenge) != challengeModule.ChallengeSize || len(nonce) != challengeModule.NonceSize || packetSize > MaxPacketSize {
 		return nil, ErrCreatePacketInvalidComponentSize
@@ -236,7 +236,7 @@ type PacketMessage struct {
 }
 
 // NewPacketMessage returns a new instance of PacketMessage.
-func NewPacketMessage(senderID []byte, ttl uint8, dataType uint16, data []byte) (*PacketMessage, error) {
+func NewPacketMessage(senderID Identity, ttl uint8, dataType uint16, data []byte) (*PacketMessage, error) {
 	packetSize := PacketHeaderSize + SignatureSize + 1 + 1 + 2 + len(data) // ttl = 1, reserved = 1, dataType = 2
 	if len(senderID) != PeerIdentitySize || packetSize > MaxPacketSize {
 		return nil, ErrCreatePacketInvalidComponentSize

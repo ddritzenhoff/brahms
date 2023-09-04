@@ -31,7 +31,10 @@ func ParsePacketHeader(data []byte) (*PacketHeader, error) {
 	}
 	size := binary.BigEndian.Uint16(data[:2])
 	messageType := MessageType(binary.BigEndian.Uint16(data[2:4]))
-	senderIdentity := data[4 : 4+IdentitySize]
+	senderIdentity, err := NewIdentity(data[4 : 4+IdentitySize])
+	if err != nil {
+		return nil, err
+	}
 
 	isSupported := false
 	for _, mt := range supportedIncomingMessageTypes {
@@ -43,7 +46,7 @@ func ParsePacketHeader(data []byte) (*PacketHeader, error) {
 		return nil, ErrParsePacketHeaderInvalidType
 	}
 
-	return &PacketHeader{Size: size, Type: messageType, SenderIdentity: senderIdentity}, nil
+	return &PacketHeader{Size: size, Type: messageType, SenderIdentity: *senderIdentity}, nil
 }
 
 // parseSignature takes tries to extract the signature from the reader.

@@ -7,11 +7,16 @@ type WritablePacket interface {
 	ToBytes() []byte
 }
 
+// ToBytes converts the Identity struct to a slice of bytes
+func (n *Identity) ToBytes() []byte {
+	return []byte(*n)
+}
+
 // ToBytes converts the Node struct to a slice of bytes.
 // The Node object takes the form of <Identity>\t<Address>\n
 func (n *Node) ToBytes() []byte {
 	var bytes []byte
-	bytes = append(bytes, n.Identity...)
+	bytes = append(bytes, n.Identity.ToBytes()...)
 	bytes = append(bytes, []byte("\t")...)
 	bytes = append(bytes, []byte(n.Address)...)
 	bytes = append(bytes, []byte("\n")...)

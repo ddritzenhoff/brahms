@@ -8,9 +8,28 @@ import (
 	"testing"
 )
 
-func TestToBytesNode(t *testing.T) {
+func TestIdentity_ToBytes(t *testing.T) {
 	t.Parallel()
-	t.Run("packet node is serialized successfully to byte slice", func(t *testing.T) {
+	t.Run("identity is serialized successfully to a byte slice", func(t *testing.T) {
+		// Create an Identity value for testing
+		id := Identity("test_identity")
+
+		// Call the ToBytes method to get the byte slice
+		b := id.ToBytes()
+
+		// Define the expected byte slice based on the string representation
+		expectedBytes := []byte(id)
+
+		// Compare the actual bytes with the expected bytes
+		if !bytes.Equal(b, expectedBytes) {
+			t.Errorf("ToBytes() = %v, want %v", b, expectedBytes)
+		}
+	})
+}
+
+func TestNode_ToBytes(t *testing.T) {
+	t.Parallel()
+	t.Run("node is serialized successfully to byte slice", func(t *testing.T) {
 		mockIdentity := sliceRepeat(IdentitySize, byte(0x12))
 		mockAddr := "1.2.3.4:5678"
 		node, err := NewNode(mockIdentity, mockAddr)
@@ -36,17 +55,20 @@ func TestToBytesNode(t *testing.T) {
 	})
 }
 
-func TestToBytesHeader(t *testing.T) {
+func TestPacketHeader_ToBytes(t *testing.T) {
 	t.Parallel()
 	t.Run("header packet is serialized successfully to byte slice", func(t *testing.T) {
 		var mockSize uint16 = 36
 		mockMessageType := MessageTypeGossipPong
 		temp := sha256.Sum256(nil)
-		mockSenderIdentity := temp[:]
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		packetHeader := PacketHeader{
 			Size:           mockSize,
 			Type:           mockMessageType,
-			SenderIdentity: mockSenderIdentity,
+			SenderIdentity: *mockSenderIdentity,
 		}
 		bytesPacketHeader := packetHeader.ToBytes()
 		reader := bytes.NewReader(bytesPacketHeader)
@@ -74,13 +96,13 @@ func TestToBytesHeader(t *testing.T) {
 		if n != IdentitySize {
 			t.Errorf("could not read expected number of bytes: expected %d, received %d", IdentitySize, n)
 		}
-		if !bytes.Equal(si, mockSenderIdentity) {
+		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("header sender identity attribute incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
 	})
 }
 
-func TestToBytesFooter(t *testing.T) {
+func TestPacketFooter_ToBytes(t *testing.T) {
 	t.Parallel()
 	t.Run("footer packet is serialized successfully to byte slice", func(t *testing.T) {
 		mockSignature := createMockSignature()
@@ -105,17 +127,20 @@ func TestToBytesFooter(t *testing.T) {
 	})
 }
 
-func TestToBytesPing(t *testing.T) {
+func TestPacketPing_ToBytes(t *testing.T) {
 	t.Parallel()
 	t.Run("packet ping is serialized successfully to byte slice", func(t *testing.T) {
 		mockType := MessageTypeGossipPing
 		temp := sha256.Sum256(nil)
-		mockSenderIdentity := temp[:]
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		mockSignature := createMockSignature()
 		ph := PacketHeader{
 			Size:           100,
 			Type:           mockType,
-			SenderIdentity: mockSenderIdentity,
+			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
 			Signature: mockSignature,
@@ -139,7 +164,7 @@ func TestToBytesPing(t *testing.T) {
 			t.Errorf("pingPacket.Type incorrect: expected 0x0030, received %x", ty)
 		}
 		si := b[4:36]
-		if !bytes.Equal(si, mockSenderIdentity) {
+		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("pingPacket.SenderIdentity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
 		sig := b[36:100]
@@ -149,17 +174,20 @@ func TestToBytesPing(t *testing.T) {
 	})
 }
 
-func TestPacketPong(t *testing.T) {
+func TestPacketPong_ToBytes(t *testing.T) {
 	t.Parallel()
 	t.Run("packet pong is serialized successfully to byte slice", func(t *testing.T) {
 		mockType := MessageTypeGossipPong
 		temp := sha256.Sum256(nil)
-		mockSenderIdentity := temp[:]
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		mockSignature := createMockSignature()
 		ph := PacketHeader{
 			Size:           100,
 			Type:           mockType,
-			SenderIdentity: mockSenderIdentity,
+			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
 			Signature: mockSignature,
@@ -183,7 +211,7 @@ func TestPacketPong(t *testing.T) {
 			t.Errorf("pingPacket.Type incorrect: expected 0x0030, received %x", ty)
 		}
 		si := b[4:36]
-		if !bytes.Equal(si, mockSenderIdentity) {
+		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("pingPacket.SenderIdentity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
 		sig := b[36:100]
@@ -193,17 +221,20 @@ func TestPacketPong(t *testing.T) {
 	})
 }
 
-func TestPacketPullRequest(t *testing.T) {
+func TestPacketPullRequest_ToBytes(t *testing.T) {
 	t.Parallel()
 	t.Run("packet pull request is serialized successfully to byte slice", func(t *testing.T) {
 		mockType := MessageTypeGossipPullRequest
 		temp := sha256.Sum256(nil)
-		mockSenderIdentity := temp[:]
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		mockSignature := createMockSignature()
 		ph := PacketHeader{
 			Size:           100,
 			Type:           mockType,
-			SenderIdentity: mockSenderIdentity,
+			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
 			Signature: mockSignature,
@@ -227,7 +258,7 @@ func TestPacketPullRequest(t *testing.T) {
 			t.Errorf("pingPacket.Type incorrect: expected 0x0030, received %x", ty)
 		}
 		si := b[4:36]
-		if !bytes.Equal(si, mockSenderIdentity) {
+		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("pingPacket.SenderIdentity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
 		sig := b[36:100]
@@ -237,17 +268,20 @@ func TestPacketPullRequest(t *testing.T) {
 	})
 }
 
-func TestPacketPullResponse(t *testing.T) {
+func TestPacketPullResponse_ToBytes(t *testing.T) {
 	t.Parallel()
 	t.Run("packet pull response is serialized successfully to byte slice", func(t *testing.T) {
 		var mockSize uint16 = 120
 		temp := sha256.Sum256(nil)
-		mockSenderIdentity := temp[:]
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		mockSignature := createMockSignature()
 		ph := PacketHeader{
 			Size:           mockSize,
 			Type:           MessageTypeGossipPullResponse,
-			SenderIdentity: mockSenderIdentity,
+			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
 			Signature: mockSignature,
@@ -292,7 +326,7 @@ func TestPacketPullResponse(t *testing.T) {
 			t.Errorf("packet message type incorrect: expected 0x0030, received %x", ty)
 		}
 		si := b[4:36]
-		if !bytes.Equal(si, mockSenderIdentity) {
+		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("packet sender identity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
 
@@ -363,17 +397,20 @@ func TestPacketPullResponse(t *testing.T) {
 	})
 }
 
-func TestPacketPushRequest(t *testing.T) {
+func TestPacketPushRequest_ToBytes(t *testing.T) {
 	t.Parallel()
 	t.Run("packet push request is serialized successfully to byte slice", func(t *testing.T) {
 		mockType := MessageTypeGossipPushRequest
 		temp := sha256.Sum256(nil)
-		mockSenderIdentity := temp[:]
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		mockSignature := createMockSignature()
 		ph := PacketHeader{
 			Size:           100,
 			Type:           mockType,
-			SenderIdentity: mockSenderIdentity,
+			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
 			Signature: mockSignature,
@@ -397,7 +434,7 @@ func TestPacketPushRequest(t *testing.T) {
 			t.Errorf("pingPacket.Type incorrect: expected 0x0030, received %x", ty)
 		}
 		si := b[4:36]
-		if !bytes.Equal(si, mockSenderIdentity) {
+		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("pingPacket.SenderIdentity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
 		sig := b[36:100]
@@ -407,17 +444,20 @@ func TestPacketPushRequest(t *testing.T) {
 	})
 }
 
-func TestPacketPushChallenge(t *testing.T) {
+func TestPacketPushChallenge_ToBytes(t *testing.T) {
 	t.Parallel()
 	t.Run("packet push challenge is serialized successfully to byte slice", func(t *testing.T) {
 		var mockSize uint16 = 104
 		temp := sha256.Sum256(nil)
-		mockSenderIdentity := temp[:]
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		mockSignature := createMockSignature()
 		ph := PacketHeader{
 			Size:           mockSize,
 			Type:           MessageTypeGossipPushChallenge,
-			SenderIdentity: mockSenderIdentity,
+			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
 			Signature: mockSignature,
@@ -443,7 +483,7 @@ func TestPacketPushChallenge(t *testing.T) {
 			t.Errorf("packet message type incorrect: expected 0x0030, received %x", ty)
 		}
 		si := b[4:36]
-		if !bytes.Equal(si, mockSenderIdentity) {
+		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("packet sender identity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
 		difficulty := binary.BigEndian.Uint32(b[36:40])
@@ -461,17 +501,20 @@ func TestPacketPushChallenge(t *testing.T) {
 	})
 }
 
-func TestPacketPush(t *testing.T) {
+func TestPacketPush_ToBytes(t *testing.T) {
 	t.Parallel()
 	t.Run("packet push is serialized successfully to byte slice", func(t *testing.T) {
 		var mockSize uint16 = 136
 		temp := sha256.Sum256(nil)
-		mockSenderIdentity := temp[:]
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		mockSignature := createMockSignature()
 		ph := PacketHeader{
 			Size:           mockSize,
 			Type:           MessageTypeGossipPush,
-			SenderIdentity: mockSenderIdentity,
+			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
 			Signature: mockSignature,
@@ -503,7 +546,7 @@ func TestPacketPush(t *testing.T) {
 			t.Errorf("packet message type incorrect: expected 0x0030, received %x", ty)
 		}
 		si := b[4:36]
-		if !bytes.Equal(si, mockSenderIdentity) {
+		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("packet sender identity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
 		ch := b[36 : 36+challenge.ChallengeSize]
@@ -538,17 +581,20 @@ func TestPacketPush(t *testing.T) {
 	})
 }
 
-func TestPacketMessage(t *testing.T) {
+func TestPacketMessage_ToBytes(t *testing.T) {
 	t.Parallel()
 	t.Run("packet message is serialized successfully to byte slice", func(t *testing.T) {
 		var mockSize uint16 = 136
 		temp := sha256.Sum256(nil)
-		mockSenderIdentity := temp[:]
+		mockSenderIdentity, err := NewIdentity(temp[:])
+		if err != nil {
+			t.Error(err)
+		}
 		mockSignature := createMockSignature()
 		ph := PacketHeader{
 			Size:           mockSize,
 			Type:           MessageTypeGossipPush,
-			SenderIdentity: mockSenderIdentity,
+			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
 			Signature: mockSignature,
@@ -574,7 +620,7 @@ func TestPacketMessage(t *testing.T) {
 			t.Errorf("packet message type incorrect: expected 0x0030, received %x", ty)
 		}
 		si := b[4:36]
-		if !bytes.Equal(si, mockSenderIdentity) {
+		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("packet sender identity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
 		ttl := b[36]
