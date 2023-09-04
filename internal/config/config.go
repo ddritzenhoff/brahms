@@ -32,7 +32,7 @@ var defaultConfig = GossipConfig{
 	ApiAddress:          "localhost:7001",
 	HostkeysPath:        "./hostkeys/",
 	GossipAddress:       "localhost:7002",
-	ChallengeDifficulty: 20,
+	ChallengeDifficulty: 19,
 	ChallengeMaxSolveMs: 300,
 }
 
@@ -78,11 +78,6 @@ func ReadConfig(path string) (*GossipConfig, error) {
 		return nil, err
 	}
 
-	bootstrapNodesStr := gossipSection.Key("bootstrap_nodes").Value()
-	if bootstrapNodesStr == "" {
-		return nil, errors.New("bootstrap_nodes has no value")
-	}
-
 	// empty quotations denote the root section.
 	privKey := getPrivateKey(iniData.Section(""))
 
@@ -92,8 +87,8 @@ func ReadConfig(path string) (*GossipConfig, error) {
 		Alpha:               alpha,
 		Beta:                beta,
 		Gamma:               gamma,
-		BootstrapNodesStr:   bootstrapNodesStr,
-		RoundsBetweenPings:  getIntOrDefault(gossipSection.Key("rounds_between_pings"), defaultConfig.RoundsBetweenPings, true),
+		BootstrapNodesStr:   gossipSection.Key("bootstrap_nodes").Value(),
+		RoundsBetweenPings:  getIntOrDefault(gossipSection.Key("rounds_between_pings"), defaultConfig.RoundsBetweenPings, false),
 		CacheSize:           getIntOrDefault(gossipSection.Key("cache_size"), defaultConfig.CacheSize, true),
 		ApiAddress:          getStringOrDefault(gossipSection.Key("api_address"), defaultConfig.ApiAddress, false),
 		HostkeysPath:        getStringOrDefault(gossipSection.Key("hostkeys_path"), defaultConfig.HostkeysPath, true),

@@ -2,6 +2,8 @@ package gossip
 
 import (
 	"crypto"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -15,6 +17,11 @@ import (
 	"path/filepath"
 
 	"go.uber.org/zap"
+)
+
+const (
+	PacketKeySize = 32
+	gcmNonceSize  = 12
 )
 
 // Crypto represents a container for all of the cryptographic functionality within the gossip protocol.
@@ -108,28 +115,74 @@ func generateIdentity(pubKey *rsa.PublicKey) (*Identity, error) {
 	return id, nil
 }
 
-// DecryptRSA decrypts data with the node's RSA private key.
-func (c *Crypto) DecryptRSA(ciphertext []byte) ([]byte, error) {
-	plaintext, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, c.cfg.PrivateKey, ciphertext, nil)
+// DecryptPacket decrypts a packet.
+// The first bytes of the packet (equivalent to the size of the peers private key)
+// contain the RSA-OAEP-encrypted 32B AES-GCM key and 12B nonce, which are used to then decrypt the rest of the packet
+func (c *Crypto) DecryptPacket(ciphertext []byte) ([]byte, error) {
+	aesKeyAndNonceBytes, err := rsa.DecryptOAEP(sha256.New(), nil, c.cfg.PrivateKey, ciphertext[:c.cfg.PrivateKey.Size()], nil)
 	if err != nil {
-		zap.L().Error("unable to decrypt message", zap.Error(err))
+		zap.L().Error("unable to decrypt packet key", zap.Error(err))
 		return nil, err
 	}
-	return plaintext, nil
+	aesBlock, err := aes.NewCipher(aesKeyAndNonceBytes[:PacketKeySize])
+	if err != nil {
+		zap.L().Error("unable to import packet aes key", zap.Error(err))
+		return nil, err
+	}
+
+	aesGCM, err := cipher.NewGCM(aesBlock)
+	if err != nil {
+		zap.L().Error("unable to create GCM for decryption", zap.Error(err))
+		return nil, err
+	}
+
+	decryptedBytes := make([]byte, 0)
+	decryptedBytes, err = aesGCM.Open(decryptedBytes, aesKeyAndNonceBytes[PacketKeySize:], ciphertext[c.cfg.PrivateKey.Size():], nil)
+	if err != nil {
+		zap.L().Warn("unable to decrypt message with aes gcm", zap.Error(err))
+		return nil, err
+	}
+
+	return decryptedBytes, nil
 }
 
-// EncryptRSA encrypts data with an RSA public key.
-func (c *Crypto) EncryptRSA(msg []byte, id Identity) ([]byte, error) {
+// EncryptPacket encrypts a packet, by randomly generating an AES-GCM key and nonce to encrypt the message.
+// The key and nonce are then RSA-OAEP encrypted with the receivers public key and prepended to the message.
+func (c *Crypto) EncryptPacket(msg []byte, id Identity) ([]byte, error) {
 	pub, exists := c.idToPub[id]
 	if !exists {
 		zap.L().Error("identity to public key mapping does not exist", zap.String("id", id.String()))
 		return nil, fmt.Errorf("identity to public key mapping does not exist: id %s", id.String())
 	}
-	ciphertext, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, &pub, msg, nil)
+
+	aesKeyAndNonceBytes := make([]byte, PacketKeySize+gcmNonceSize)
+	_, err := rand.Read(aesKeyAndNonceBytes)
 	if err != nil {
-		zap.L().Error("unable to encrypt message", zap.Error(err))
+		zap.L().Error("could not generate aes key and iv", zap.Error(err))
 		return nil, err
 	}
+
+	aesBlock, err := aes.NewCipher(aesKeyAndNonceBytes[:PacketKeySize])
+	if err != nil {
+		zap.L().Error("unable to initialize generated aes key", zap.Error(err))
+		return nil, err
+	}
+
+	encryptedAesKey, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, &pub, aesKeyAndNonceBytes, nil)
+	if err != nil {
+		zap.L().Error("unable to encrypt aes key", zap.Error(err))
+		return nil, err
+	}
+
+	aesGCM, err := cipher.NewGCM(aesBlock)
+	if err != nil {
+		return nil, err
+	}
+	encryptedMessage := make([]byte, 0)
+	encryptedMessage = aesGCM.Seal(encryptedMessage, aesKeyAndNonceBytes[PacketKeySize:], msg, nil)
+
+	ciphertext := encryptedAesKey
+	ciphertext = append(ciphertext, encryptedMessage...)
 	return ciphertext, nil
 }
 

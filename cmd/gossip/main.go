@@ -4,7 +4,7 @@ import (
 	"flag"
 	"go.uber.org/zap"
 	"gossiphers/internal/config"
-	"os"
+	"gossiphers/internal/gossip"
 )
 
 func main() {
@@ -17,8 +17,16 @@ func main() {
 
 	cfg, err := config.ReadConfig(*cfgPath)
 	if err != nil {
-		os.Exit(1)
+		zap.L().Fatal("Error reading configuration", zap.Error(err))
 	}
 
 	zap.L().Debug("Configuration read", zap.Any("config", cfg))
+	gsp, err := gossip.NewGossip(cfg)
+	if err != nil {
+		zap.L().Fatal("Error creating gossip", zap.Error(err))
+	}
+	err = gsp.Start()
+	if err != nil {
+		zap.L().Fatal("Error during gossip rounds", zap.Error(err))
+	}
 }

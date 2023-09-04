@@ -23,16 +23,18 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 )
 
 const (
-	dockerNetworkName          = "gossip-test-network"
-	testCertsDir               = "test-data" + string(os.PathSeparator) + "testcerts"
-	testConfigPath             = "test-data" + string(os.PathSeparator) + "test-config.ini"
-	bootstrappedTestConfigPath = "test-data" + string(os.PathSeparator) + "test-config-bootstrap.ini"
-	rsaKeySize                 = 4096
-	dockerImageName            = "gossiphers:test"
+	dockerNetworkName = "gossip-test-network"
+	testCertsDir      = "test-data" + string(os.PathSeparator) + "testcerts"
+	testConfigsDir    = "test-data" + string(os.PathSeparator) + "testcfgs"
+	testConfigPath    = "test-data" + string(os.PathSeparator) + "test-config.ini"
+	rsaKeySize        = 4096
+	dockerImageName   = "gossiphers:test"
 )
 
 func main() {
@@ -136,7 +138,7 @@ func runStartCommand(numNodes int) {
 		identityString := hex.EncodeToString(pubKeyHash[:])
 		identities = append(identities, identityString)
 
-		pemFile, err := os.Create(testCertsDir + "/" + identityString + ".pem")
+		pemFile, err := os.Create(testCertsDir + string(os.PathSeparator) + identityString)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -166,47 +168,47 @@ func runStartCommand(numNodes int) {
 
 	}
 
-	log.Println("Generating config.ini with bootstrap node...")
-	cfgFileIn, err := os.Open(testConfigPath)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	cfgFileOut, err := os.Create(bootstrappedTestConfigPath)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	_, err = io.Copy(cfgFileOut, cfgFileIn)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	_ = cfgFileIn.Close()
-	_, err = cfgFileOut.WriteString(fmt.Sprintf("\nbootstrap_nodes = %v,gossip-%v:7001", identities[0], identities[0]))
-	if err != nil {
-		log.Fatalln(err)
-	}
-	_ = cfgFileOut.Close()
-
 	log.Println("Creating docker network...")
-	_, err = cli.NetworkCreate(ctx, dockerNetworkName, types.NetworkCreate{Driver: "bridge"})
+	networkCreateRes, err := cli.NetworkCreate(ctx, dockerNetworkName, types.NetworkCreate{Driver: "bridge"})
 	if err != nil {
 		log.Fatalln(err)
+	}
+	networkInspectRes, err := cli.NetworkInspect(ctx, networkCreateRes.ID, types.NetworkInspectOptions{})
+	if err != nil {
+		log.Fatalln(err)
+	}
+	networkPrefix := strings.TrimSuffix(networkInspectRes.IPAM.Config[0].Gateway, "1")
+
+	log.Println("Generating config files...")
+	err = os.Mkdir(testConfigsDir, os.ModeDir)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	bootstrapIP := networkPrefix + "2"
+	for n, identity := range identities {
+		if n != 0 {
+			generateConfigFile(identity, networkPrefix+strconv.Itoa(n+2), &identities[0], &bootstrapIP)
+		} else {
+			generateConfigFile(identity, networkPrefix+strconv.Itoa(n+2), nil, nil)
+		}
+
 	}
 
 	log.Println("Starting containers...")
-	firstContainer := true
-	for _, identity := range identities {
+	for n, identity := range identities {
 		containerCfg := container.Config{
 			Image:   dockerImageName,
 			Volumes: map[string]struct{}{},
 			ExposedPorts: nat.PortSet{
 				"7001/tcp": {},
+				"7002/udp": {},
 			},
 		}
 		hostCfg := container.HostConfig{
 			Mounts: []mount.Mount{
 				{
 					Type:   mount.TypeBind,
-					Source: fmt.Sprintf("%v%v%v", cwd, string(os.PathSeparator), bootstrappedTestConfigPath),
+					Source: fmt.Sprintf("%v%v%v%v%v.ini", cwd, string(os.PathSeparator), testConfigsDir, string(os.PathSeparator), identity),
 					Target: "/config.ini",
 				},
 				{
@@ -216,18 +218,16 @@ func runStartCommand(numNodes int) {
 				},
 				{
 					Type:   mount.TypeBind,
-					Source: fmt.Sprintf("%v%v%v%v%v.pem", cwd, string(os.PathSeparator), testCertsDir, string(os.PathSeparator), identity),
+					Source: fmt.Sprintf("%v%v%v%v%v", cwd, string(os.PathSeparator), testCertsDir, string(os.PathSeparator), identity),
 					Target: "/nodekey.pem",
 				},
 			},
 		}
 		networkCfg := network.NetworkingConfig{
-			EndpointsConfig: map[string]*network.EndpointSettings{dockerNetworkName: {}},
+			EndpointsConfig: map[string]*network.EndpointSettings{dockerNetworkName: {IPAddress: networkPrefix + strconv.Itoa(n+2)}},
 		}
-		if firstContainer {
-			firstContainer = false
+		if n == 0 {
 			hostCfg.PortBindings = nat.PortMap{"7001/tcp": []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "7001"}}}
-			hostCfg.Mounts[0].Source = fmt.Sprintf("%v%v%v", cwd, string(os.PathSeparator), testConfigPath)
 		}
 
 		createRes, err := cli.ContainerCreate(ctx, &containerCfg, &hostCfg, &networkCfg, nil, "gossip-"+identity)
@@ -239,10 +239,39 @@ func runStartCommand(numNodes int) {
 		if err != nil {
 			log.Fatalln(err)
 		}
+
+		if n == 0 {
+			// Sleep one second to wait for bootstrap container to be started
+			time.Sleep(time.Second)
+		}
 	}
 
 	log.Println("API of container gossip-" + identities[0] + " is available at localhost:7001")
 	log.Println("Finished!")
+}
+
+func generateConfigFile(nodeIdentity string, nodeIP string, bootStrapIdentity *string, bootStrapIP *string) {
+	cfgFileIn, err := os.Open(testConfigPath)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	cfgFileOut, err := os.Create(testConfigsDir + string(os.PathSeparator) + nodeIdentity + ".ini")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_, err = io.Copy(cfgFileOut, cfgFileIn)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_ = cfgFileIn.Close()
+	if bootStrapIdentity != nil {
+		_, err = cfgFileOut.WriteString(fmt.Sprintf("\nbootstrap_nodes = %v,%v:7002", *bootStrapIdentity, *bootStrapIP))
+	}
+	_, err = cfgFileOut.WriteString(fmt.Sprintf("\ngossip_address = %v:7002", nodeIP))
+	if err != nil {
+		log.Fatalln(err)
+	}
+	_ = cfgFileOut.Close()
 }
 
 func runStopCommand() {
@@ -288,7 +317,7 @@ func runStopCommand() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	err = os.Remove(bootstrappedTestConfigPath)
+	err = os.RemoveAll(testConfigsDir)
 	if err != nil {
 		log.Fatalln(err)
 	}

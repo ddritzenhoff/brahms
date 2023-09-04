@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"gossiphers/internal/api"
 	"gossiphers/internal/challenge"
 	"net"
@@ -24,7 +25,7 @@ func (s *Server) handlePing(fromAddr net.Addr, packet PacketPing) {
 // handlePong handles the pong message type.
 func (s *Server) handlePong(_ net.Addr, packet PacketPong) {
 	s.mutexPongChannels.RLock()
-	if ch, ok := s.pongChannels[string(packet.SenderIdentity)]; ok {
+	if ch, ok := s.pongChannels[packet.SenderIdentity.String()]; ok {
 		ch <- struct{}{}
 	}
 	s.mutexPongChannels.RUnlock()
@@ -33,6 +34,11 @@ func (s *Server) handlePong(_ net.Addr, packet PacketPong) {
 // handlePullRequest handles the pull request message type.
 func (s *Server) handlePullRequest(fromAddr net.Addr, packet PacketPullRequest) {
 	s.mutexPullResponseNodes.RLock()
+	// don't send push response when view is empty
+	if len(s.pullResponseNodes) == 0 {
+		s.mutexPullResponseNodes.RUnlock()
+		return
+	}
 	responsePacket, err := NewPacketPullResponse(s.ownNode.Identity, s.pullResponseNodes)
 	if err != nil {
 		zap.L().Warn("Error creating pull response packet", zap.Error(err))
@@ -51,6 +57,9 @@ func (s *Server) handlePullResponse(_ net.Addr, packet PacketPullResponse) {
 	// Allow message exchange after pull response
 	s.addPeerCondition(packet.SenderIdentity, AllowMessage)
 	for _, node := range packet.Nodes {
+		if node.String() == s.ownNode.String() {
+			continue
+		}
 		s.pullNodes <- node
 	}
 }
@@ -125,38 +134,46 @@ func (s *Server) handleMessage(fromAddr net.Addr, packet PacketMessage) {
 	hashFunc := sha256.New()
 	hashFunc.Write(packet.Data)
 	dataHash := hashFunc.Sum(nil)
-	s.mutexMessages.Lock()
-	messagesSameSource := 0
-	for _, msg := range s.messagesToSpread {
-		// ignore messages that are already known
-		if msg.DataType == packet.DataType && bytes.Equal(msg.DataHash, dataHash) {
-			return
+	// Using an anonymous function here to prevent an accidental deadlock on the message mutex
+	if !func() bool {
+		s.mutexMessages.Lock()
+		defer s.mutexMessages.Unlock()
+		messagesSameSource := 0
+		for _, msg := range s.messagesToSpread {
+			// ignore messages that are already known
+			if msg.DataType == packet.DataType && bytes.Equal(msg.DataHash, dataHash) {
+				return false
+			}
+			if bytes.Equal(packet.SenderIdentity.ToBytes(), msg.SourceIdentity.ToBytes()) {
+				messagesSameSource++
+			}
 		}
-		if bytes.Equal(packet.SenderIdentity.ToBytes(), msg.SourceIdentity.ToBytes()) {
-			messagesSameSource++
-		}
-	}
 
-	// ignore message if we have too many concurrent messages from that peer in our storage
-	if messagesSameSource > 50 {
-		zap.L().Info("Ignored gossip message to prevent message flooding", zap.String("source_identity", string(packet.SenderIdentity)), zap.String("source_address", fromAddr.String()))
+		// ignore message if we have too many concurrent messages from that peer in our storage
+		if messagesSameSource > 50 {
+			zap.L().Info("Ignored gossip message to prevent message flooding", zap.String("source_identity", string(packet.SenderIdentity)), zap.String("source_address", fromAddr.String()))
+			return false
+		}
+		var newTTL uint8 = 0
+		localTTL := 255
+		if packet.TTL != 0 {
+			newTTL = packet.TTL - 1
+			localTTL = int(newTTL)
+		}
+		s.messagesToSpread = append(s.messagesToSpread, spreadableMessage{
+			LocalTTL:       localTTL,
+			TTL:            newTTL,
+			DataType:       packet.DataType,
+			Data:           packet.Data,
+			DataHash:       dataHash,
+			SourceIdentity: packet.SenderIdentity,
+		})
+		return true
+	}() {
 		return
 	}
-	var newTTL uint8 = 0
-	localTTL := 255
-	if packet.TTL != 0 {
-		newTTL = packet.TTL - 1
-		localTTL = int(newTTL)
-	}
-	s.messagesToSpread = append(s.messagesToSpread, spreadableMessage{
-		LocalTTL:       localTTL,
-		TTL:            newTTL,
-		DataType:       packet.DataType,
-		Data:           packet.Data,
-		DataHash:       dataHash,
-		SourceIdentity: packet.SenderIdentity,
-	})
-	s.mutexMessages.Unlock()
+
+	zap.L().Info("Received new gossip message for API clients", zap.Uint16("data_type", packet.DataType), zap.String("data_hash", hex.EncodeToString(dataHash)))
 
 	// forward newly received message to API clients
 	apiPacket, err := api.NewGossipNotification(packet.DataType, packet.Data)
@@ -170,6 +187,7 @@ func (s *Server) handleMessage(fromAddr net.Addr, packet PacketMessage) {
 		}
 		// Remove invalid packet from internal state to stop it from spreading further
 		s.mutexMessages.Lock()
+		defer s.mutexMessages.Unlock()
 		var newMessages []spreadableMessage
 		for _, msg := range s.messagesToSpread {
 			if !bytes.Equal(msg.DataHash, dataHash) {
@@ -177,6 +195,5 @@ func (s *Server) handleMessage(fromAddr net.Addr, packet PacketMessage) {
 			}
 		}
 		s.messagesToSpread = newMessages
-		s.mutexMessages.Unlock()
 	})
 }

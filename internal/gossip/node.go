@@ -47,5 +47,5 @@ func NewNode(identity []byte, address string) (*Node, error) {
 
 // String returns the string representation of a node.
 func (n *Node) String() string {
-	return n.Identity.String() + n.Address
+	return n.Identity.String() + "@" + n.Address
 }
