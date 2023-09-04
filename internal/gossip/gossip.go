@@ -42,14 +42,8 @@ func NewGossip(cfg *config.GossipConfig) (*Gossip, error) {
 		return nil, err
 	}
 
-	pushView, err := NewView()
-	if err != nil {
-		return nil, err
-	}
-	pullView, err := NewView()
-	if err != nil {
-		return nil, err
-	}
+	pushView := NewView()
+	pullView := NewView()
 
 	samplerGroup, err := NewSamplerGroup(cfg.SamplerSize)
 	if err != nil {
@@ -61,10 +55,7 @@ func NewGossip(cfg *config.GossipConfig) (*Gossip, error) {
 		return nil, err
 	}
 
-	mainView, err := NewView(WithBootstrapNodes(bootstrapNodes))
-	if err != nil {
-		return nil, err
-	}
+	mainView := NewView(WithBootstrapNodes(bootstrapNodes))
 
 	samplerGroup.Update(bootstrapNodes)
 
@@ -171,11 +162,7 @@ func (g *Gossip) Start() error {
 			}
 
 			nodes := g.trimDuplicates(randPullViewNodesSubset, randPushViewNodesSubset, randSamplerNodesSubset)
-			newMainView, err := NewView(WithBootstrapNodes(nodes))
-			if err != nil {
-				return err
-			}
-			g.mainView = newMainView
+			g.mainView = NewView(WithBootstrapNodes(nodes))
 		}
 		samplerWaitGroup.Wait()
 		g.samplerGroup.Update(pushViewNodes)
