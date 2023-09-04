@@ -106,23 +106,40 @@ func (p *PacketPullRequest) Parse(header *PacketHeader, reader *bytes.Reader) er
 }
 
 // parseNodes takes a string of the form <identity1>\t<address1>\n<identity2>\t<address2>\n<identity3>\t<address3>\n... and parses it into a slice of nodes.
-func parseNodes(nodesStr string) ([]Node, error) {
-	nodePairs := strings.Split(string(nodesStr), "\n")
+func parseNodes(nodeBytes []byte) ([]Node, error) {
+	reader := bytes.NewReader(nodeBytes)
 	var nodes []Node
-	for _, nodePair := range nodePairs {
-		// Skip empty lines
-		if nodePair == "" {
-			continue
+	for {
+		if reader.Len() < IdentitySize+3 {
+			break
 		}
-		parts := strings.Split(nodePair, "\t")
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("node list encoding incorrect: not able to identify the identity and address of the node: received %s and decoded it into %v", nodePair, parts)
-		}
-		node, err := NewNode([]byte(parts[0]), parts[1])
+		nodeIdentity := make([]byte, IdentitySize)
+		_, err := reader.Read(nodeIdentity)
 		if err != nil {
 			return nil, err
 		}
-		nodes = append(nodes, *node)
+
+		var rest []rune
+		for {
+			readRune, _, err := reader.ReadRune()
+			if err != nil {
+				return nil, err
+			}
+			if readRune == '\n' {
+				break
+			}
+			rest = append(rest, readRune)
+		}
+		if !strings.HasPrefix(string(rest), "\t") {
+			return nil, fmt.Errorf("expected a \\t separator in node list, found %v", rest[0])
+		}
+		address := strings.TrimPrefix(string(rest), "\t")
+		newNode, err := NewNode(nodeIdentity, address)
+		if err != nil {
+			return nil, err
+		}
+
+		nodes = append(nodes, *newNode)
 	}
 	return nodes, nil
 }
@@ -139,7 +156,7 @@ func (p *PacketPullResponse) Parse(header *PacketHeader, reader *bytes.Reader) e
 	if err != nil {
 		return err
 	}
-	nodes, err := parseNodes(string(nodesStr))
+	nodes, err := parseNodes(nodesStr)
 	if err != nil {
 		return err
 	}
@@ -236,12 +253,12 @@ func (p *PacketPush) Parse(header *PacketHeader, reader *bytes.Reader) error {
 	if nodeTotalSize <= IdentitySize+2+1 {
 		return errors.New("missing <identity>\\t<address>\\n component of PUSH packet")
 	}
-	nodeStr := make([]byte, nodeTotalSize)
-	_, err = reader.Read(nodeStr)
+	nodeBytes := make([]byte, nodeTotalSize)
+	_, err = reader.Read(nodeBytes)
 	if err != nil {
 		return err
 	}
-	nodes, err := parseNodes(string(nodeStr))
+	nodes, err := parseNodes(nodeBytes)
 	if err != nil {
 		return err
 	}

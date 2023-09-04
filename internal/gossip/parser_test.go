@@ -115,15 +115,15 @@ func TestParsePacketPing(t *testing.T) {
 
 		reader := bytes.NewReader(p.ToBytes())
 
-		if reader.Len() != 100 {
-			t.Errorf("expecting 100, got %d", reader.Len())
+		if reader.Len() != 548 {
+			t.Errorf("expecting 548, got %d", reader.Len())
 		}
 		_, err = reader.Seek(int64(PacketHeaderSize), io.SeekStart)
 		if err != nil {
 			t.Error(err)
 		}
-		if reader.Len() != 64 {
-			t.Errorf("expecting 64, got %d", reader.Len())
+		if reader.Len() != 512 {
+			t.Errorf("expecting 512, got %d", reader.Len())
 		}
 
 		var pingPacket PacketPing
@@ -172,15 +172,15 @@ func TestParsePacketPong(t *testing.T) {
 		}
 
 		reader := bytes.NewReader(p.ToBytes())
-		if reader.Len() != 100 {
-			t.Errorf("expecting 100, got %d", reader.Len())
+		if reader.Len() != 548 {
+			t.Errorf("expecting 548, got %d", reader.Len())
 		}
 		_, err = reader.Seek(int64(PacketHeaderSize), io.SeekStart)
 		if err != nil {
 			t.Error(err)
 		}
-		if reader.Len() != 64 {
-			t.Errorf("expecting 64, got %d", reader.Len())
+		if reader.Len() != 512 {
+			t.Errorf("expecting 512, got %d", reader.Len())
 		}
 
 		var pongPacket PacketPong
@@ -228,15 +228,15 @@ func TestParsePacketPullRequest(t *testing.T) {
 		}
 
 		reader := bytes.NewReader(p.ToBytes())
-		if reader.Len() != 100 {
-			t.Errorf("expecting 100, got %d", reader.Len())
+		if reader.Len() != 548 {
+			t.Errorf("expecting 548, got %d", reader.Len())
 		}
 		_, err = reader.Seek(int64(PacketHeaderSize), io.SeekStart)
 		if err != nil {
 			t.Error(err)
 		}
-		if reader.Len() != 64 {
-			t.Errorf("expecting 64, got %d", reader.Len())
+		if reader.Len() != 512 {
+			t.Errorf("expecting 512, got %d", reader.Len())
 		}
 
 		var pullRequest PacketPullRequest
@@ -280,7 +280,7 @@ func TestParseNodes(t *testing.T) {
 		mockNodes = append(mockNodes, mockNode1.ToBytes()...)
 		mockNodes = append(mockNodes, mockNode2.ToBytes()...)
 
-		nodes, err := parseNodes(string(mockNodes))
+		nodes, err := parseNodes(mockNodes)
 		if err != nil {
 			t.Error(err)
 		}
@@ -311,7 +311,7 @@ func TestParseNodes(t *testing.T) {
 		}
 		var mockNodes []byte
 		mockNodes = append(mockNodes, mockNode1.ToBytes()...)
-		nodes, err := parseNodes(string(mockNodes))
+		nodes, err := parseNodes(mockNodes)
 		if err != nil {
 			t.Error(err)
 		}
@@ -438,15 +438,15 @@ func TestParsePacketPushRequest(t *testing.T) {
 		}
 
 		reader := bytes.NewReader(p.ToBytes())
-		if reader.Len() != 100 {
-			t.Errorf("expecting 100, got %d", reader.Len())
+		if reader.Len() != 548 {
+			t.Errorf("expecting 548, got %d", reader.Len())
 		}
 		_, err = reader.Seek(int64(PacketHeaderSize), io.SeekStart)
 		if err != nil {
 			t.Error(err)
 		}
-		if reader.Len() != 64 {
-			t.Errorf("expecting 64, got %d", reader.Len())
+		if reader.Len() != 512 {
+			t.Errorf("expecting 512, got %d", reader.Len())
 		}
 
 		var pushRequest PacketPushRequest

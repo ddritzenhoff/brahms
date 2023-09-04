@@ -2,6 +2,7 @@ package gossip
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"gossiphers/internal/api"
 	"gossiphers/internal/config"
@@ -35,10 +36,12 @@ func NewGossip(cfg *config.GossipConfig) (*Gossip, error) {
 	pullNodes := make(chan Node)
 	gCrypto, err := NewCrypto(cfg)
 	if err != nil {
+		zap.L().Error("Error initializing crypto")
 		return nil, err
 	}
 	gossipServer, err := NewServer(cfg, pushNodes, pullNodes, gCrypto, apiServer)
 	if err != nil {
+		zap.L().Error("Error initializing gossip server")
 		return nil, err
 	}
 
@@ -90,14 +93,20 @@ func (g *Gossip) Start() error {
 	}
 
 	go func() {
-		for node := range g.pushNodes {
-			g.pushView.Append(node)
+		for {
+			select {
+			case node := <-g.pullNodes:
+				g.pullView.Append(node)
+			}
 		}
 	}()
 
 	go func() {
-		for node := range g.pullNodes {
-			g.pullView.Append(node)
+		for {
+			select {
+			case node := <-g.pushNodes:
+				g.pushView.Append(node)
+			}
 		}
 	}()
 
@@ -110,13 +119,22 @@ func (g *Gossip) Start() error {
 
 		// periodically health-check (ping) nodes within the samplers.
 		var samplerWaitGroup sync.WaitGroup
+		alreadySampled := map[string]struct{}{}
 		if round%g.cfg.RoundsBetweenPings == 0 {
 			for _, sampler := range g.samplerGroup.samplers {
+				if sampler.Sample() == nil {
+					continue
+				}
+				if _, wasSampled := alreadySampled[sampler.Sample().String()]; wasSampled {
+					continue
+				}
+				alreadySampled[sampler.Sample().String()] = struct{}{}
 				samplerWaitGroup.Add(1)
 				movedSampler := sampler
 				go func() {
 					defer samplerWaitGroup.Done()
-					if !g.gossipServer.Ping(movedSampler.Sample(), time.Millisecond*200) {
+					if !g.gossipServer.Ping(movedSampler.Sample(), time.Millisecond*500) {
+						zap.L().Info("Sampler node offline, reinitializing sampler...", zap.String("node", movedSampler.Sample().String()))
 						err = movedSampler.Init()
 						if err != nil {
 							zap.L().Error("Error reinitializing sampler", zap.Error(err))
@@ -126,19 +144,19 @@ func (g *Gossip) Start() error {
 			}
 		}
 
-		nodes, err := randSubset(mainViewNodes, g.AlphaL1())
+		pushToNodes, err := randSubset(mainViewNodes, g.AlphaL1())
 		if err != nil {
 			return err
 		}
-		for _, node := range nodes {
+		for _, node := range pushToNodes {
 			g.gossipServer.SendPushRequest(node)
 		}
 
-		nodes, err = randSubset(mainViewNodes, g.BetaL1())
+		pullFromNodes, err := randSubset(mainViewNodes, g.BetaL1())
 		if err != nil {
 			return err
 		}
-		for _, node := range nodes {
+		for _, node := range pullFromNodes {
 			g.gossipServer.SendPullRequest(node)
 		}
 
@@ -147,7 +165,7 @@ func (g *Gossip) Start() error {
 
 		pushViewNodes := g.pushView.GetAll()
 		pullViewNodes := g.pullView.GetAll()
-		if len(pushViewNodes) <= g.AlphaL1() && len(pushViewNodes) > 0 && len(pullViewNodes) > 0 {
+		if len(pushViewNodes) <= g.AlphaL1() && len(pushViewNodes) > 0 && (len(pullViewNodes) > 0 || len(pullFromNodes) == 0) {
 			randPushViewNodesSubset, err := randSubset(pushViewNodes, g.AlphaL1())
 			if err != nil {
 				return err
@@ -170,7 +188,7 @@ func (g *Gossip) Start() error {
 
 		// increment round
 		round++
-		zap.L().Info("new round starting", zap.Int("round", round))
+		zap.L().Info("new round starting", zap.Int("round", round), zap.Int("current_view_size", g.mainView.NodeCount()))
 	}
 }
 
@@ -192,7 +210,7 @@ func (g *Gossip) GammaL1() int {
 // trimDuplicates combines slices of nodes while trimming the duplicates.
 func (g *Gossip) trimDuplicates(listNodes ...[]*Node) []Node {
 	unique := make(map[string]bool)
-	result := make([]Node, g.cfg.ViewSize)
+	result := make([]Node, 0)
 	for _, nodes := range listNodes {
 		for _, node := range nodes {
 			if !unique[node.String()] {
@@ -206,7 +224,7 @@ func (g *Gossip) trimDuplicates(listNodes ...[]*Node) []Node {
 
 // parseNodes takes a string of the form <id1>,<addr1>|<id2>,<addr2>|...|<idn>,<addrn>| and parses it into a slice of nodes.
 func parseBootstrapNodesStr(nodesStr string) ([]Node, error) {
-	nodePairs := strings.Split(string(nodesStr), "|")
+	nodePairs := strings.Split(nodesStr, "|")
 	var nodes []Node
 	for _, nodePair := range nodePairs {
 		// Skip empty lines
@@ -217,7 +235,11 @@ func parseBootstrapNodesStr(nodesStr string) ([]Node, error) {
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("node list encoding incorrect: not able to identify the identity and address of the node: received %s and decoded it into %v", nodePair, parts)
 		}
-		node, err := NewNode([]byte(parts[0]), parts[1])
+		identity, err := hex.DecodeString(parts[0])
+		if err != nil {
+			return nil, err
+		}
+		node, err := NewNode(identity, parts[1])
 		if err != nil {
 			return nil, err
 		}
@@ -228,21 +250,22 @@ func parseBootstrapNodesStr(nodesStr string) ([]Node, error) {
 
 // RandomSubset returns a random subset of up to length n of the nodes. If n is greater then len(nodes), only a random subset of len(nodes) will be returned.
 func randSubset(nodes []Node, n int) ([]*Node, error) {
-	if n > len(nodes) {
-		zap.L().Warn("n greater than len(nodes) so trying to return a randsubset with n now set to len(nodes)")
+	if n == 0 {
+		return nil, nil
+	} else if n > len(nodes) {
 		return randSubset(nodes, len(nodes))
 	} else if n < 0 {
 		return nil, fmt.Errorf("n cannot be negative: received %d", n)
 	}
 
-	copySlice := make([]*Node, len(nodes))
+	copySlice := make([]*Node, 0)
 	for ii := 0; ii < len(nodes); ii++ {
 		copySlice = append(copySlice, &nodes[ii])
 	}
 
-	for i := n - 1; i > 0; i-- {
+	for i := 0; i < len(copySlice); i++ {
 		// Generate a random index between 0 and i (inclusive)
-		bigJ, err := rand.Int(rand.Reader, big.NewInt(int64(i+1)))
+		bigJ, err := rand.Int(rand.Reader, big.NewInt(int64(len(copySlice))))
 		if err != nil {
 			return nil, err
 		}

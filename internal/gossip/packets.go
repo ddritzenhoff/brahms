@@ -25,7 +25,7 @@ const (
 	// 2 bytes for the size field, 2 bytes for the Message Type, and 32 bytes for the Sender Identity.
 	PacketHeaderSize int = 36
 	// SignatureSize represents the length of the signature in bytes.
-	SignatureSize    int = 64
+	SignatureSize    int = 512
 	PeerIdentitySize int = 32
 
 	MaxPacketSize = 65535
@@ -135,7 +135,7 @@ func NewPacketPullResponse(senderID Identity, nodes []Node) (*PacketPullResponse
 	return &PacketPullResponse{
 		PacketHeader: PacketHeader{
 			Size:           uint16(packetSize),
-			Type:           MessageTypeGossipMessage,
+			Type:           MessageTypeGossipPullResponse,
 			SenderIdentity: senderID,
 		},
 		Nodes: nodes,

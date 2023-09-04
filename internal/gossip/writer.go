@@ -1,6 +1,8 @@
 package gossip
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+)
 
 // WritablePacket represents a packet struct that can be converted to a slice of bytes.
 type WritablePacket interface {

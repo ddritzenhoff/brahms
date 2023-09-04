@@ -46,6 +46,13 @@ func (v *View) Append(n Node) {
 	v.nodes = append(v.nodes, n)
 }
 
+// NodeCount returns the number of nodes in the view (not checked for uniqueness)
+func (v *View) NodeCount() int {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return len(v.nodes)
+}
+
 // GetAll returns a copy of the nodes within the View.
 func (v *View) GetAll() []Node {
 	v.mu.Lock()

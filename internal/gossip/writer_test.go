@@ -151,8 +151,8 @@ func TestPacketPing_ToBytes(t *testing.T) {
 		}
 
 		b := p.ToBytes()
-		if len(b) != 100 {
-			t.Errorf("wrong binary blob size: expected 100, received %d", len(b))
+		if len(b) != 548 {
+			t.Errorf("wrong binary blob size: expected 548, received %d", len(b))
 		}
 		size := binary.BigEndian.Uint16(b[0:2])
 		if size != 100 {
@@ -167,7 +167,7 @@ func TestPacketPing_ToBytes(t *testing.T) {
 		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("pingPacket.SenderIdentity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
-		sig := b[36:100]
+		sig := b[36:]
 		if !bytes.Equal(sig, mockSignature) {
 			t.Errorf("pingPacket.Signature incorrect: expected %v, received %v", mockSignature, sig)
 		}
@@ -198,8 +198,8 @@ func TestPacketPong_ToBytes(t *testing.T) {
 		}
 
 		b := p.ToBytes()
-		if len(b) != 100 {
-			t.Errorf("wrong binary blob size: expected 100, received %d", len(b))
+		if len(b) != 548 {
+			t.Errorf("wrong binary blob size: expected 548, received %d", len(b))
 		}
 		size := binary.BigEndian.Uint16(b[0:2])
 		if size != 100 {
@@ -214,7 +214,7 @@ func TestPacketPong_ToBytes(t *testing.T) {
 		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("pingPacket.SenderIdentity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
-		sig := b[36:100]
+		sig := b[36:]
 		if !bytes.Equal(sig, mockSignature) {
 			t.Errorf("pingPacket.Signature incorrect: expected %v, received %v", mockSignature, sig)
 		}
@@ -245,8 +245,8 @@ func TestPacketPullRequest_ToBytes(t *testing.T) {
 		}
 
 		b := p.ToBytes()
-		if len(b) != 100 {
-			t.Errorf("wrong binary blob size: expected 100, received %d", len(b))
+		if len(b) != 548 {
+			t.Errorf("wrong binary blob size: expected 548, received %d", len(b))
 		}
 		size := binary.BigEndian.Uint16(b[0:2])
 		if size != 100 {
@@ -261,7 +261,7 @@ func TestPacketPullRequest_ToBytes(t *testing.T) {
 		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("pingPacket.SenderIdentity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
-		sig := b[36:100]
+		sig := b[36:]
 		if !bytes.Equal(sig, mockSignature) {
 			t.Errorf("pingPacket.Signature incorrect: expected %v, received %v", mockSignature, sig)
 		}
@@ -421,8 +421,8 @@ func TestPacketPushRequest_ToBytes(t *testing.T) {
 		}
 
 		b := p.ToBytes()
-		if len(b) != 100 {
-			t.Errorf("wrong binary blob size: expected 100, received %d", len(b))
+		if len(b) != 548 {
+			t.Errorf("wrong binary blob size: expected 548, received %d", len(b))
 		}
 		size := binary.BigEndian.Uint16(b[0:2])
 		if size != 100 {
@@ -437,7 +437,7 @@ func TestPacketPushRequest_ToBytes(t *testing.T) {
 		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("pingPacket.SenderIdentity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
-		sig := b[36:100]
+		sig := b[36:]
 		if !bytes.Equal(sig, mockSignature) {
 			t.Errorf("pingPacket.Signature incorrect: expected %v, received %v", mockSignature, sig)
 		}
@@ -494,7 +494,7 @@ func TestPacketPushChallenge_ToBytes(t *testing.T) {
 		if !bytes.Equal(challenge, mockChallenge) {
 			t.Errorf("packet challenge incorrect: expected %v, received %v", mockChallenge, challenge)
 		}
-		sig := b[72:136]
+		sig := b[72:]
 		if !bytes.Equal(sig, mockSignature) {
 			t.Errorf("packet signature incorrect: expected %v, received %v", mockSignature, sig)
 		}
@@ -636,7 +636,7 @@ func TestPacketMessage_ToBytes(t *testing.T) {
 		if !bytes.Equal(data, mockData) {
 			t.Errorf("packet data incorrect: expected %v, received %v", mockData, data)
 		}
-		sig := b[131:195]
+		sig := b[131:]
 		if !bytes.Equal(sig, mockSignature) {
 			t.Errorf("packet signature incorrect: expected %v, received %v", mockSignature, sig)
 		}

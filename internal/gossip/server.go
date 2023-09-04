@@ -7,6 +7,7 @@ import (
 	"gossiphers/internal/challenge"
 	"gossiphers/internal/config"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -105,6 +106,7 @@ func NewServer(cfg *config.GossipConfig, pushNodes chan Node, pullNodes chan Nod
 
 	// Automatically spread messages given to us by API clients
 	server.apiServer.RegisterGossipAnnounceHandler(func(ttl uint8, dataType uint16, data []byte) {
+		zap.L().Info("Spreading Gossip Message from local API client", zap.Uint16("data_type", dataType), zap.Uint8("ttl", ttl))
 		server.spreadMessage(ttl, dataType, data)
 	})
 
@@ -132,6 +134,7 @@ func (s *Server) ResetPeerStates() {
 
 	// decay local message TTL, delete messages with TTL=0
 	s.mutexMessages.Lock()
+	defer s.mutexMessages.Unlock()
 	var newMessages []spreadableMessage
 	for _, msg := range s.messagesToSpread {
 		msg.LocalTTL--
@@ -140,7 +143,6 @@ func (s *Server) ResetPeerStates() {
 		}
 	}
 	s.messagesToSpread = newMessages
-	s.mutexMessages.Unlock()
 }
 
 // UpdatePullResponseNodes should be called by the gossip logic to update the nodes used in pull responses regularly
@@ -154,7 +156,7 @@ func (s *Server) UpdatePullResponseNodes(nodes []Node) {
 func (s *Server) listenForPackets() {
 	defer s.listener.Close()
 	for {
-		buf := make([]byte, 65535)
+		buf := make([]byte, 65535+s.cfg.PrivateKey.Size())
 		numBytes, fromAddr, err := s.listener.ReadFrom(buf)
 		if err != nil {
 			zap.L().Warn("Error reading gossip packet from UDP socket", zap.Error(err))
@@ -168,13 +170,13 @@ func (s *Server) listenForPackets() {
 
 // handleIncomingBytes determines the request type of the packet by means of the header and handles it accordingly.
 func (s *Server) handleIncomingBytes(packetBytes []byte, fromAddr net.Addr) {
-	if len(packetBytes) < PacketHeaderSize+SignatureSize {
+	if len(packetBytes) < PacketHeaderSize+SignatureSize+s.cfg.PrivateKey.Size() {
 		zap.L().Info("Received gossip packet with invalid length")
 		return
 	}
-	decryptedBytes, err := s.crypto.DecryptRSA(packetBytes)
+	decryptedBytes, err := s.crypto.DecryptPacket(packetBytes)
 	if err != nil {
-		zap.L().Error("Could not decrypt received gossip packet", zap.Error(err))
+		zap.L().Warn("Could not decrypt received gossip packet", zap.Error(err))
 		return
 	}
 
@@ -184,12 +186,13 @@ func (s *Server) handleIncomingBytes(packetBytes []byte, fromAddr net.Addr) {
 		return
 	}
 
-	err = s.crypto.VerifySignature(packetBytes[:len(packetBytes)-SignatureSize], packetBytes[len(packetBytes)-SignatureSize:], header.SenderIdentity)
+	err = s.crypto.VerifySignature(decryptedBytes[:len(decryptedBytes)-SignatureSize], decryptedBytes[len(decryptedBytes)-SignatureSize:], header.SenderIdentity)
 	if err != nil {
 		zap.L().Info("Signature on received gossip packet could not be validated", zap.Error(err), zap.String("sender_address", fromAddr.String()))
 		return
 	}
 
+	zap.L().Debug("Received valid Gossip Packet", zap.String("type", strconv.FormatInt(int64(header.Type), 16)), zap.String("from_identity", header.SenderIdentity.String()), zap.String("from_address", fromAddr.String()))
 	switch header.Type {
 	case MessageTypeGossipPing:
 		packet := PacketPing{}
@@ -249,7 +252,7 @@ func (s *Server) handleIncomingBytes(packetBytes []byte, fromAddr net.Addr) {
 		s.handleMessage(fromAddr, packet)
 	}
 	if err != nil {
-		zap.L().Info("Received gossip packet with invalid content", zap.Error(err))
+		zap.L().Info("Received gossip packet with invalid content", zap.Error(err), zap.String("source_identity", header.SenderIdentity.String()))
 		return
 	}
 }
@@ -265,7 +268,7 @@ func (s *Server) sendBytes(packetBytes []byte, address string, receiverIdentity 
 	signedBytes := append(packetBytes, signature...)
 
 	// RSA Encrypt
-	encryptedBytes, err := s.crypto.EncryptRSA(signedBytes, receiverIdentity)
+	encryptedBytes, err := s.crypto.EncryptPacket(signedBytes, receiverIdentity)
 	if err != nil {
 		zap.L().Warn("Error encrypting outgoing packet", zap.Error(err), zap.String("target_addr", address))
 		return err
@@ -317,6 +320,7 @@ func (s *Server) hasPeerCondition(identity Identity, condition peerCondition) bo
 // This should only be used with nodes that have previously responded with a pull response or accepted a push.
 func (s *Server) sendGossipMessages(address string, receiverIdentity Identity) {
 	s.mutexMessages.RLock()
+	defer s.mutexMessages.RUnlock()
 	for _, msg := range s.messagesToSpread {
 		if msg.LocalTTL <= 0 {
 			continue
@@ -329,7 +333,6 @@ func (s *Server) sendGossipMessages(address string, receiverIdentity Identity) {
 
 		_ = s.sendBytes(packet.ToBytes(), address, receiverIdentity)
 	}
-	s.mutexMessages.RUnlock()
 }
 
 // Ping sends a ping packet to a given node and waits for a reply for the specified time.
@@ -368,6 +371,7 @@ func (s *Server) Ping(node *Node, timeout time.Duration) bool {
 
 // SendPullRequest sends a gossip pull request to a given node and consequently allows the node to respond to it
 func (s *Server) SendPullRequest(node *Node) {
+	zap.L().Debug("Sending Pull request", zap.String("target_identity", node.Identity.String()), zap.String("target_address", node.Address))
 	packet, err := NewPacketPullRequest(s.ownNode.Identity)
 	if err != nil {
 		zap.L().Error("Error creating PullRequestPacket", zap.Error(err))
@@ -379,10 +383,12 @@ func (s *Server) SendPullRequest(node *Node) {
 // SendPushRequest sends a gossip push request to a node.
 // The node can respond with a push challenge which is then solved and the node pushes its own identity and address
 func (s *Server) SendPushRequest(node *Node) {
+	zap.L().Debug("Sending Push request", zap.String("target_identity", node.Identity.String()), zap.String("target_address", node.Address))
 	packet, err := NewPacketPushRequest(s.ownNode.Identity)
 	if err != nil {
 		zap.L().Error("Error creating PushRequestPacket", zap.Error(err))
 	}
+	s.addPeerCondition(node.Identity, AllowPushChallenge)
 	_ = s.sendBytes(packet.ToBytes(), node.Address, node.Identity)
 }
 

@@ -90,13 +90,18 @@ func (sg *SamplerGroup) RandomNodeSubset(n int) ([]*Node, error) {
 	if n > len(sg.samplers) || n <= 0 {
 		return nil, fmt.Errorf("RandomSubset: required size between 0 (non-inclusive) and |sg.samplers|")
 	}
-	copySlice := make([]*Sampler, len(sg.samplers))
-	for ii := 0; ii < len(sg.samplers); ii++ {
-		copySlice = append(copySlice, &sg.samplers[ii])
+
+	// mix samplers
+	copySlice := make([]*Sampler, 0)
+	for i := 0; i < len(sg.samplers); i++ {
+		if sg.samplers[i].Sample() == nil {
+			continue
+		}
+		copySlice = append(copySlice, &sg.samplers[i])
 	}
-	for i := n - 1; i > 0; i-- {
+	for i := 0; i < len(copySlice); i++ {
 		// Generate a random index between 0 and i (inclusive)
-		bigJ, err := rand.Int(rand.Reader, big.NewInt(int64(i+1)))
+		bigJ, err := rand.Int(rand.Reader, big.NewInt(int64(len(copySlice))))
 		if err != nil {
 			return nil, err
 		}
@@ -109,9 +114,9 @@ func (sg *SamplerGroup) RandomNodeSubset(n int) ([]*Node, error) {
 		copySlice[i], copySlice[j] = copySlice[j], copySlice[i]
 	}
 
-	nodes := make([]*Node, n)
-	for ii := 0; ii < n; ii++ {
-		nodes = append(nodes, copySlice[ii].Sample())
+	nodes := make([]*Node, 0)
+	for i := 0; i < n && i < len(copySlice); i++ {
+		nodes = append(nodes, copySlice[i].Sample())
 	}
 	return nodes, nil
 }

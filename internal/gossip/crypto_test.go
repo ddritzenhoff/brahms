@@ -116,94 +116,88 @@ func TestCrypto_GenerateIdentity(t *testing.T) {
 	})
 }
 
-func TestCrypto_DecryptRSA(t *testing.T) {
+func TestCrypto_EncryptPacket(t *testing.T) {
 	t.Parallel()
-	t.Run("correctly decrypts data", func(t *testing.T) {
-		// Generate an RSA key pair for testing
+	t.Run("correctly encrypts packet", func(t *testing.T) {
+		// Create a Crypto instance with a known private key and receiver public key
 		privateKey, err := rsa.GenerateKey(rand.Reader, RSAKeySize)
 		if err != nil {
 			t.Fatal("Error generating RSA key pair:", err)
 		}
 
-		// Create a Crypto instance with the public key
-		c := &Crypto{
-			cfg: &config.GossipConfig{
-				PrivateKey: privateKey,
-			},
-			idToPub: map[Identity]rsa.PublicKey{
-				"test_identity": privateKey.PublicKey,
-			},
-		}
-
-		// Data to encrypt and decrypt
-		message := []byte("Hello, World!")
-
-		// Encrypt the message to obtain ciphertext
-		ciphertext, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, &privateKey.PublicKey, message, nil)
-		if err != nil {
-			t.Fatal("Error encrypting data:", err)
-		}
-
-		// Test case 1: Successful decryption
-		plaintext, err := c.DecryptRSA(ciphertext)
-		if err != nil {
-			t.Fatal("Decryption failed:", err)
-		}
-
-		if !bytes.Equal(message, plaintext) {
-			t.Fatal("Decrypted message does not match original message.")
-		}
-
-		// Test case 2: Decryption failure (invalid ciphertext)
-		invalidCiphertext := []byte("InvalidCiphertext")
-		_, err = c.DecryptRSA(invalidCiphertext)
-		if err == nil {
-			t.Fatal("Decryption failure should result in an error, but it didn't.")
-		}
-	})
-}
-
-func TestCrypto_EncryptRSA(t *testing.T) {
-	t.Parallel()
-	t.Run("correctly encrypts data", func(t *testing.T) {
-		// Generate an RSA key pair for testing
-		privateKey, err := rsa.GenerateKey(rand.Reader, RSAKeySize)
+		otherPeerPrivateKey, err := rsa.GenerateKey(rand.Reader, RSAKeySize)
 		if err != nil {
 			t.Fatal("Error generating RSA key pair:", err)
 		}
 
-		// Create a Crypto instance with the public key
 		c := &Crypto{
 			cfg: &config.GossipConfig{
 				PrivateKey: privateKey,
 			},
 			idToPub: map[Identity]rsa.PublicKey{
-				"test_identity": privateKey.PublicKey,
+				"test_identity": otherPeerPrivateKey.PublicKey,
 			},
 		}
 
 		// Data to encrypt
-		message := []byte("Hello, World!")
+		data := []byte("Hello, World!")
 
-		// Test case 1: Successful encryption
-		ciphertext, err := c.EncryptRSA(message, "test_identity")
+		ciphertext, err := c.EncryptPacket(data, "test_identity")
 		if err != nil {
-			t.Fatal("Encryption failed:", err)
+			t.Fatal("Error encrypting data:", err)
 		}
 
-		// Test case 2: Identity not found
-		_, err = c.EncryptRSA(message, "non_existent_identity")
+		receiverCrypto := &Crypto{
+			cfg: &config.GossipConfig{
+				PrivateKey: otherPeerPrivateKey,
+			},
+		}
+		decrypted, err := receiverCrypto.DecryptPacket(ciphertext)
+		if err != nil {
+			t.Fatal("Error decrypting encrypted data:", err)
+		}
+
+		if !bytes.Equal(data, decrypted) {
+			t.Errorf("Encrypted and decrypted data do not match\n%x != %x", data, decrypted)
+		}
+	})
+}
+
+func TestCrypto_DecryptPacket(t *testing.T) {
+	t.Parallel()
+	t.Run("incorrectly encrypted packet will not be decrypted", func(t *testing.T) {
+		// Create a Crypto instance with a known private key and receiver public key
+		privateKey, err := rsa.GenerateKey(rand.Reader, RSAKeySize)
+		if err != nil {
+			t.Fatal("Error generating RSA key pair:", err)
+		}
+
+		otherPeerPrivateKey, err := rsa.GenerateKey(rand.Reader, RSAKeySize)
+		if err != nil {
+			t.Fatal("Error generating RSA key pair:", err)
+		}
+
+		c := &Crypto{
+			cfg: &config.GossipConfig{
+				PrivateKey: privateKey,
+			},
+			idToPub: map[Identity]rsa.PublicKey{
+				"test_identity": otherPeerPrivateKey.PublicKey,
+			},
+		}
+
+		// Data to encrypt
+		data := []byte("Hello, World!")
+
+		ciphertext, err := c.EncryptPacket(data, "test_identity")
+		if err != nil {
+			t.Fatal("Error encrypting data:", err)
+		}
+
+		// decrypt packet with our own private key, despite it being for another peer
+		_, err = c.DecryptPacket(ciphertext)
 		if err == nil {
-			t.Fatal("Identity not found should result in an error, but it didn't.")
-		}
-
-		// Test case 3: Decryption
-		decryptedMessage, err := c.DecryptRSA(ciphertext)
-		if err != nil {
-			t.Fatal("Decryption failed:", err)
-		}
-		if !bytes.Equal(message, decryptedMessage) {
-			t.Fatal("Decrypted message does not match original message.")
+			t.Error("Incorrectly decrypted data throws no error")
 		}
 	})
 }
