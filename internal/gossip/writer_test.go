@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"gossiphers/internal/challenge"
 	"testing"
+	"time"
 )
 
 func TestIdentity_ToBytes(t *testing.T) {
@@ -58,16 +59,18 @@ func TestNode_ToBytes(t *testing.T) {
 func TestPacketHeader_ToBytes(t *testing.T) {
 	t.Parallel()
 	t.Run("header packet is serialized successfully to byte slice", func(t *testing.T) {
-		var mockSize uint16 = 36
+		var mockSize uint16 = 44
 		mockMessageType := MessageTypeGossipPong
 		temp := sha256.Sum256(nil)
 		mockSenderIdentity, err := NewIdentity(temp[:])
 		if err != nil {
 			t.Error(err)
 		}
+		mockTimestamp := uint64(time.Now().UnixMilli())
 		packetHeader := PacketHeader{
 			Size:           mockSize,
 			Type:           mockMessageType,
+			Timestamp:      mockTimestamp,
 			SenderIdentity: *mockSenderIdentity,
 		}
 		bytesPacketHeader := packetHeader.ToBytes()
@@ -85,6 +88,13 @@ func TestPacketHeader_ToBytes(t *testing.T) {
 		binary.Read(reader, binary.BigEndian, &mt)
 		if mt != mockMessageType {
 			t.Errorf("header message type attribute incorrect: expected %x, received %x", mockMessageType, mt)
+		}
+
+		// timestamp
+		var timestamp uint64
+		binary.Read(reader, binary.BigEndian, &timestamp)
+		if timestamp != mockTimestamp {
+			t.Errorf("header timestamo attribute incorrect: expected %x, received %x", mockMessageType, mt)
 		}
 
 		// sender identity
@@ -133,6 +143,7 @@ func TestPacketPing_ToBytes(t *testing.T) {
 		mockType := MessageTypeGossipPing
 		temp := sha256.Sum256(nil)
 		mockSenderIdentity, err := NewIdentity(temp[:])
+		mockTimestamp := uint64(time.Now().UnixMilli())
 		if err != nil {
 			t.Error(err)
 		}
@@ -140,6 +151,7 @@ func TestPacketPing_ToBytes(t *testing.T) {
 		ph := PacketHeader{
 			Size:           100,
 			Type:           mockType,
+			Timestamp:      mockTimestamp,
 			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
@@ -151,8 +163,8 @@ func TestPacketPing_ToBytes(t *testing.T) {
 		}
 
 		b := p.ToBytes()
-		if len(b) != 548 {
-			t.Errorf("wrong binary blob size: expected 548, received %d", len(b))
+		if len(b) != 556 {
+			t.Errorf("wrong binary blob size: expected 556, received %d", len(b))
 		}
 		size := binary.BigEndian.Uint16(b[0:2])
 		if size != 100 {
@@ -163,11 +175,15 @@ func TestPacketPing_ToBytes(t *testing.T) {
 		if MessageType(ty) != mockType {
 			t.Errorf("pingPacket.Type incorrect: expected 0x0030, received %x", ty)
 		}
-		si := b[4:36]
+		ts := binary.BigEndian.Uint64(b[4:12])
+		if ts != mockTimestamp {
+			t.Errorf("pingPacket.Timestamp incorrect")
+		}
+		si := b[12:44]
 		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("pingPacket.SenderIdentity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
-		sig := b[36:]
+		sig := b[44:]
 		if !bytes.Equal(sig, mockSignature) {
 			t.Errorf("pingPacket.Signature incorrect: expected %v, received %v", mockSignature, sig)
 		}
@@ -180,6 +196,7 @@ func TestPacketPong_ToBytes(t *testing.T) {
 		mockType := MessageTypeGossipPong
 		temp := sha256.Sum256(nil)
 		mockSenderIdentity, err := NewIdentity(temp[:])
+		mockTimestamp := uint64(time.Now().UnixMilli())
 		if err != nil {
 			t.Error(err)
 		}
@@ -187,6 +204,7 @@ func TestPacketPong_ToBytes(t *testing.T) {
 		ph := PacketHeader{
 			Size:           100,
 			Type:           mockType,
+			Timestamp:      mockTimestamp,
 			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
@@ -198,8 +216,8 @@ func TestPacketPong_ToBytes(t *testing.T) {
 		}
 
 		b := p.ToBytes()
-		if len(b) != 548 {
-			t.Errorf("wrong binary blob size: expected 548, received %d", len(b))
+		if len(b) != 556 {
+			t.Errorf("wrong binary blob size: expected 556, received %d", len(b))
 		}
 		size := binary.BigEndian.Uint16(b[0:2])
 		if size != 100 {
@@ -210,11 +228,11 @@ func TestPacketPong_ToBytes(t *testing.T) {
 		if MessageType(ty) != mockType {
 			t.Errorf("pingPacket.Type incorrect: expected 0x0030, received %x", ty)
 		}
-		si := b[4:36]
+		si := b[12:44]
 		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("pingPacket.SenderIdentity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
-		sig := b[36:]
+		sig := b[44:]
 		if !bytes.Equal(sig, mockSignature) {
 			t.Errorf("pingPacket.Signature incorrect: expected %v, received %v", mockSignature, sig)
 		}
@@ -227,6 +245,7 @@ func TestPacketPullRequest_ToBytes(t *testing.T) {
 		mockType := MessageTypeGossipPullRequest
 		temp := sha256.Sum256(nil)
 		mockSenderIdentity, err := NewIdentity(temp[:])
+		mockTimestamp := uint64(time.Now().UnixMilli())
 		if err != nil {
 			t.Error(err)
 		}
@@ -234,6 +253,7 @@ func TestPacketPullRequest_ToBytes(t *testing.T) {
 		ph := PacketHeader{
 			Size:           100,
 			Type:           mockType,
+			Timestamp:      mockTimestamp,
 			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
@@ -245,8 +265,8 @@ func TestPacketPullRequest_ToBytes(t *testing.T) {
 		}
 
 		b := p.ToBytes()
-		if len(b) != 548 {
-			t.Errorf("wrong binary blob size: expected 548, received %d", len(b))
+		if len(b) != 556 {
+			t.Errorf("wrong binary blob size: expected 556, received %d", len(b))
 		}
 		size := binary.BigEndian.Uint16(b[0:2])
 		if size != 100 {
@@ -257,11 +277,11 @@ func TestPacketPullRequest_ToBytes(t *testing.T) {
 		if MessageType(ty) != mockType {
 			t.Errorf("pingPacket.Type incorrect: expected 0x0030, received %x", ty)
 		}
-		si := b[4:36]
+		si := b[12:44]
 		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("pingPacket.SenderIdentity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
-		sig := b[36:]
+		sig := b[44:]
 		if !bytes.Equal(sig, mockSignature) {
 			t.Errorf("pingPacket.Signature incorrect: expected %v, received %v", mockSignature, sig)
 		}
@@ -271,9 +291,10 @@ func TestPacketPullRequest_ToBytes(t *testing.T) {
 func TestPacketPullResponse_ToBytes(t *testing.T) {
 	t.Parallel()
 	t.Run("packet pull response is serialized successfully to byte slice", func(t *testing.T) {
-		var mockSize uint16 = 120
+		var mockSize uint16 = 128
 		temp := sha256.Sum256(nil)
 		mockSenderIdentity, err := NewIdentity(temp[:])
+		mockTimestamp := uint64(time.Now().UnixMilli())
 		if err != nil {
 			t.Error(err)
 		}
@@ -281,6 +302,7 @@ func TestPacketPullResponse_ToBytes(t *testing.T) {
 		ph := PacketHeader{
 			Size:           mockSize,
 			Type:           MessageTypeGossipPullResponse,
+			Timestamp:      mockTimestamp,
 			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
@@ -325,7 +347,7 @@ func TestPacketPullResponse_ToBytes(t *testing.T) {
 		if MessageType(ty) != MessageTypeGossipPullResponse {
 			t.Errorf("packet message type incorrect: expected 0x0030, received %x", ty)
 		}
-		si := b[4:36]
+		si := b[12:44]
 		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("packet sender identity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
@@ -333,25 +355,25 @@ func TestPacketPullResponse_ToBytes(t *testing.T) {
 		// nodes --> <Identity1>\t<Address1>\n<Identity2>\t<Address2>\n<Identity3>\t<Address3>\n
 
 		// node1
-		id1 := b[36 : 36+IdentitySize]
+		id1 := b[44 : 44+IdentitySize]
 		if !bytes.Equal(id1, mockIdentity1) {
 			t.Errorf("packet identity1 incorrect: expected %v, received %v", mockIdentity1, id1)
 		}
-		t1 := string(b[36+IdentitySize : 36+IdentitySize+1])
+		t1 := string(b[44+IdentitySize : 44+IdentitySize+1])
 		if t1 != "\t" {
 			t.Errorf("packet \\t incorrect: expected %s, received %s", "\t", t1)
 		}
-		addr1 := string(b[36+IdentitySize+1 : 36+IdentitySize+1+len(mockAddr1)])
+		addr1 := string(b[44+IdentitySize+1 : 44+IdentitySize+1+len(mockAddr1)])
 		if addr1 != mockAddr1 {
 			t.Errorf("packet address1 incorrect: expected: %s, received %s", mockAddr1, addr1)
 		}
-		n1 := string(b[36+IdentitySize+1+len(mockAddr1) : 36+IdentitySize+1+len(mockAddr1)+1])
+		n1 := string(b[44+IdentitySize+1+len(mockAddr1) : 44+IdentitySize+1+len(mockAddr1)+1])
 		if n1 != "\n" {
 			t.Errorf("packet \\n incorrect: expected %s, received %s", "\n", n1)
 		}
 
 		// node2
-		node2Start := 36 + IdentitySize + 1 + len(mockAddr1) + 1
+		node2Start := 44 + IdentitySize + 1 + len(mockAddr1) + 1
 		id2 := b[node2Start : node2Start+IdentitySize]
 		if !bytes.Equal(id2, mockIdentity2) {
 			t.Errorf("packet identity2 incorrect: expected %v, received %v", mockIdentity2, id2)
@@ -403,6 +425,7 @@ func TestPacketPushRequest_ToBytes(t *testing.T) {
 		mockType := MessageTypeGossipPushRequest
 		temp := sha256.Sum256(nil)
 		mockSenderIdentity, err := NewIdentity(temp[:])
+		mockTimestamp := uint64(time.Now().UnixMilli())
 		if err != nil {
 			t.Error(err)
 		}
@@ -410,6 +433,7 @@ func TestPacketPushRequest_ToBytes(t *testing.T) {
 		ph := PacketHeader{
 			Size:           100,
 			Type:           mockType,
+			Timestamp:      mockTimestamp,
 			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
@@ -421,8 +445,8 @@ func TestPacketPushRequest_ToBytes(t *testing.T) {
 		}
 
 		b := p.ToBytes()
-		if len(b) != 548 {
-			t.Errorf("wrong binary blob size: expected 548, received %d", len(b))
+		if len(b) != 556 {
+			t.Errorf("wrong binary blob size: expected 556, received %d", len(b))
 		}
 		size := binary.BigEndian.Uint16(b[0:2])
 		if size != 100 {
@@ -433,11 +457,11 @@ func TestPacketPushRequest_ToBytes(t *testing.T) {
 		if MessageType(ty) != mockType {
 			t.Errorf("pingPacket.Type incorrect: expected 0x0030, received %x", ty)
 		}
-		si := b[4:36]
+		si := b[12:44]
 		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("pingPacket.SenderIdentity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
-		sig := b[36:]
+		sig := b[44:]
 		if !bytes.Equal(sig, mockSignature) {
 			t.Errorf("pingPacket.Signature incorrect: expected %v, received %v", mockSignature, sig)
 		}
@@ -450,6 +474,7 @@ func TestPacketPushChallenge_ToBytes(t *testing.T) {
 		var mockSize uint16 = 104
 		temp := sha256.Sum256(nil)
 		mockSenderIdentity, err := NewIdentity(temp[:])
+		mockTimestamp := uint64(time.Now().UnixMilli())
 		if err != nil {
 			t.Error(err)
 		}
@@ -457,6 +482,7 @@ func TestPacketPushChallenge_ToBytes(t *testing.T) {
 		ph := PacketHeader{
 			Size:           mockSize,
 			Type:           MessageTypeGossipPushChallenge,
+			Timestamp:      mockTimestamp,
 			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
@@ -482,19 +508,19 @@ func TestPacketPushChallenge_ToBytes(t *testing.T) {
 		if MessageType(ty) != MessageTypeGossipPushChallenge {
 			t.Errorf("packet message type incorrect: expected 0x0030, received %x", ty)
 		}
-		si := b[4:36]
+		si := b[12:44]
 		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("packet sender identity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
-		difficulty := binary.BigEndian.Uint32(b[36:40])
+		difficulty := binary.BigEndian.Uint32(b[44:48])
 		if difficulty != mockDifficulty {
 			t.Errorf("packet difficulty incorrect: expected %d, received %d", mockDifficulty, difficulty)
 		}
-		challenge := b[40 : 40+32]
+		challenge := b[48 : 48+32]
 		if !bytes.Equal(challenge, mockChallenge) {
 			t.Errorf("packet challenge incorrect: expected %v, received %v", mockChallenge, challenge)
 		}
-		sig := b[72:]
+		sig := b[80:]
 		if !bytes.Equal(sig, mockSignature) {
 			t.Errorf("packet signature incorrect: expected %v, received %v", mockSignature, sig)
 		}
@@ -507,6 +533,7 @@ func TestPacketPush_ToBytes(t *testing.T) {
 		var mockSize uint16 = 136
 		temp := sha256.Sum256(nil)
 		mockSenderIdentity, err := NewIdentity(temp[:])
+		mockTimestamp := uint64(time.Now().UnixMilli())
 		if err != nil {
 			t.Error(err)
 		}
@@ -514,6 +541,7 @@ func TestPacketPush_ToBytes(t *testing.T) {
 		ph := PacketHeader{
 			Size:           mockSize,
 			Type:           MessageTypeGossipPush,
+			Timestamp:      mockTimestamp,
 			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
@@ -545,36 +573,36 @@ func TestPacketPush_ToBytes(t *testing.T) {
 		if MessageType(ty) != MessageTypeGossipPush {
 			t.Errorf("packet message type incorrect: expected 0x0030, received %x", ty)
 		}
-		si := b[4:36]
+		si := b[12:44]
 		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("packet sender identity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
-		ch := b[36 : 36+challenge.ChallengeSize]
+		ch := b[44 : 44+challenge.ChallengeSize]
 		if !bytes.Equal(ch, mockChallenge) {
 			t.Errorf("packet challenge incorrect: expected %v, received %v", mockChallenge, ch)
 		}
-		nonce := b[36+challenge.ChallengeSize : 36+challenge.ChallengeSize+challenge.NonceSize]
+		nonce := b[44+challenge.ChallengeSize : 44+challenge.ChallengeSize+challenge.NonceSize]
 		if !bytes.Equal(nonce, mockNonce) {
 			t.Errorf("packet nonce incorrect: expected %v, received %v", mockNonce, nonce)
 		}
 		// node --> <Identity>\t<Address>\n
-		id := b[36+challenge.ChallengeSize+challenge.NonceSize : 36+challenge.ChallengeSize+challenge.NonceSize+IdentitySize]
+		id := b[44+challenge.ChallengeSize+challenge.NonceSize : 44+challenge.ChallengeSize+challenge.NonceSize+IdentitySize]
 		if !bytes.Equal(id, mockIdentity) {
 			t.Errorf("packet identity incorrect: expected %v, received %v", mockIdentity, id)
 		}
-		t1 := string(b[36+challenge.ChallengeSize+challenge.NonceSize+IdentitySize : 36+challenge.ChallengeSize+challenge.NonceSize+IdentitySize+1])
+		t1 := string(b[44+challenge.ChallengeSize+challenge.NonceSize+IdentitySize : 44+challenge.ChallengeSize+challenge.NonceSize+IdentitySize+1])
 		if t1 != "\t" {
 			t.Errorf("packet \\t incorrect: expected %s, received %s", "\t", t1)
 		}
-		addr := string(b[36+challenge.ChallengeSize+challenge.NonceSize+IdentitySize+1 : 36+challenge.ChallengeSize+challenge.NonceSize+IdentitySize+1+len(mockAddr)])
+		addr := string(b[44+challenge.ChallengeSize+challenge.NonceSize+IdentitySize+1 : 44+challenge.ChallengeSize+challenge.NonceSize+IdentitySize+1+len(mockAddr)])
 		if addr != mockAddr {
 			t.Errorf("packet address incorrect: expected: %s, received %s", mockAddr, addr)
 		}
-		n1 := string(b[36+challenge.ChallengeSize+challenge.NonceSize+IdentitySize+1+len(mockAddr) : 36+challenge.ChallengeSize+challenge.NonceSize+IdentitySize+1+len(mockAddr)+1])
+		n1 := string(b[44+challenge.ChallengeSize+challenge.NonceSize+IdentitySize+1+len(mockAddr) : 44+challenge.ChallengeSize+challenge.NonceSize+IdentitySize+1+len(mockAddr)+1])
 		if n1 != "\n" {
 			t.Errorf("packet \\n incorrect: expected %s, received %s", "\n", n1)
 		}
-		sig := b[36+challenge.ChallengeSize+challenge.NonceSize+IdentitySize+1+len(mockAddr)+1 : 36+challenge.ChallengeSize+challenge.NonceSize+IdentitySize+1+len(mockAddr)+1+SignatureSize]
+		sig := b[44+challenge.ChallengeSize+challenge.NonceSize+IdentitySize+1+len(mockAddr)+1 : 44+challenge.ChallengeSize+challenge.NonceSize+IdentitySize+1+len(mockAddr)+1+SignatureSize]
 		if !bytes.Equal(sig, mockSignature) {
 			t.Errorf("packet signature incorrect: expected %v, received %v", mockSignature, sig)
 		}
@@ -587,6 +615,7 @@ func TestPacketMessage_ToBytes(t *testing.T) {
 		var mockSize uint16 = 136
 		temp := sha256.Sum256(nil)
 		mockSenderIdentity, err := NewIdentity(temp[:])
+		mockTimestamp := uint64(time.Now().UnixMilli())
 		if err != nil {
 			t.Error(err)
 		}
@@ -594,6 +623,7 @@ func TestPacketMessage_ToBytes(t *testing.T) {
 		ph := PacketHeader{
 			Size:           mockSize,
 			Type:           MessageTypeGossipPush,
+			Timestamp:      mockTimestamp,
 			SenderIdentity: *mockSenderIdentity,
 		}
 		pf := PacketFooter{
@@ -619,24 +649,24 @@ func TestPacketMessage_ToBytes(t *testing.T) {
 		if MessageType(ty) != MessageTypeGossipPush {
 			t.Errorf("packet message type incorrect: expected 0x0030, received %x", ty)
 		}
-		si := b[4:36]
+		si := b[12:44]
 		if !bytes.Equal(si, mockSenderIdentity.ToBytes()) {
 			t.Errorf("packet sender identity incorrect: expected %v, received %v", mockSenderIdentity, si)
 		}
-		ttl := b[36]
+		ttl := b[44]
 		if ttl != mockTTL {
 			t.Errorf("packet TTL incorrect: expected %d, received %d", mockTTL, ttl)
 		}
 		// reserved 8 bits
-		dt := binary.BigEndian.Uint16(b[38:40])
+		dt := binary.BigEndian.Uint16(b[46:48])
 		if dt != mockDataType {
 			t.Errorf("packet data type incorrect: expected %d, received %d", mockDataType, dt)
 		}
-		data := b[40 : 40+91]
+		data := b[48 : 48+91]
 		if !bytes.Equal(data, mockData) {
 			t.Errorf("packet data incorrect: expected %v, received %v", mockData, data)
 		}
-		sig := b[131:]
+		sig := b[139:]
 		if !bytes.Equal(sig, mockSignature) {
 			t.Errorf("packet signature incorrect: expected %v, received %v", mockSignature, sig)
 		}
