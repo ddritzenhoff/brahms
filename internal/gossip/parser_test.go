@@ -115,8 +115,8 @@ func TestParsePacketPing(t *testing.T) {
 
 		reader := bytes.NewReader(p.ToBytes())
 
-		if reader.Len() != 548 {
-			t.Errorf("expecting 548, got %d", reader.Len())
+		if reader.Len() != 556 {
+			t.Errorf("expecting 556, got %d", reader.Len())
 		}
 		_, err = reader.Seek(int64(PacketHeaderSize), io.SeekStart)
 		if err != nil {
@@ -172,8 +172,8 @@ func TestParsePacketPong(t *testing.T) {
 		}
 
 		reader := bytes.NewReader(p.ToBytes())
-		if reader.Len() != 548 {
-			t.Errorf("expecting 548, got %d", reader.Len())
+		if reader.Len() != 556 {
+			t.Errorf("expecting 556, got %d", reader.Len())
 		}
 		_, err = reader.Seek(int64(PacketHeaderSize), io.SeekStart)
 		if err != nil {
@@ -228,8 +228,8 @@ func TestParsePacketPullRequest(t *testing.T) {
 		}
 
 		reader := bytes.NewReader(p.ToBytes())
-		if reader.Len() != 548 {
-			t.Errorf("expecting 548, got %d", reader.Len())
+		if reader.Len() != 556 {
+			t.Errorf("expecting 556, got %d", reader.Len())
 		}
 		_, err = reader.Seek(int64(PacketHeaderSize), io.SeekStart)
 		if err != nil {
@@ -438,8 +438,8 @@ func TestParsePacketPushRequest(t *testing.T) {
 		}
 
 		reader := bytes.NewReader(p.ToBytes())
-		if reader.Len() != 548 {
-			t.Errorf("expecting 548, got %d", reader.Len())
+		if reader.Len() != 556 {
+			t.Errorf("expecting 556, got %d", reader.Len())
 		}
 		_, err = reader.Seek(int64(PacketHeaderSize), io.SeekStart)
 		if err != nil {

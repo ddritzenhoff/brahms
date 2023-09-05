@@ -186,6 +186,11 @@ func (s *Server) handleIncomingBytes(packetBytes []byte, fromAddr net.Addr) {
 		return
 	}
 
+	if time.UnixMilli(int64(header.Timestamp)).Add(time.Second * 8).Before(time.Now()) {
+		zap.L().Info("Received and ignored gossip packet with old timestamp", zap.Uint64("packet_time", header.Timestamp), zap.Int64("local_time", time.Now().UnixMilli()))
+		return
+	}
+
 	err = s.crypto.VerifySignature(decryptedBytes[:len(decryptedBytes)-SignatureSize], decryptedBytes[len(decryptedBytes)-SignatureSize:], header.SenderIdentity)
 	if err != nil {
 		zap.L().Info("Signature on received gossip packet could not be validated", zap.Error(err), zap.String("sender_address", fromAddr.String()))

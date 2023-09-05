@@ -3,6 +3,7 @@ package gossip
 import (
 	"errors"
 	challengeModule "gossiphers/internal/challenge"
+	"time"
 )
 
 // MessageType represents the different types of messages existing within the gossip protocol.
@@ -23,7 +24,7 @@ const (
 
 	// PacketHeaderSize represents the length of the PacketHeader in bytes.
 	// 2 bytes for the size field, 2 bytes for the Message Type, and 32 bytes for the Sender Identity.
-	PacketHeaderSize int = 36
+	PacketHeaderSize int = 44
 	// SignatureSize represents the length of the signature in bytes.
 	SignatureSize    int = 512
 	PeerIdentitySize int = 32
@@ -39,6 +40,7 @@ var (
 type PacketHeader struct {
 	Size           uint16      // 2
 	Type           MessageType // 2
+	Timestamp      uint64      // 8
 	SenderIdentity Identity    // 32
 }
 
@@ -62,6 +64,7 @@ func NewPacketPing(senderID Identity) (*PacketPing, error) {
 		PacketHeader: PacketHeader{
 			Size:           uint16(PacketHeaderSize + SignatureSize),
 			Type:           MessageTypeGossipPing,
+			Timestamp:      uint64(time.Now().UnixMilli()),
 			SenderIdentity: senderID,
 		},
 		PacketFooter: PacketFooter{
@@ -85,6 +88,7 @@ func NewPacketPong(senderID Identity) (*PacketPing, error) {
 		PacketHeader: PacketHeader{
 			Size:           uint16(PacketHeaderSize + SignatureSize),
 			Type:           MessageTypeGossipPong,
+			Timestamp:      uint64(time.Now().UnixMilli()),
 			SenderIdentity: senderID,
 		},
 		PacketFooter: PacketFooter{
@@ -108,6 +112,7 @@ func NewPacketPullRequest(senderID Identity) (*PacketPullRequest, error) {
 		PacketHeader: PacketHeader{
 			Size:           uint16(PacketHeaderSize + SignatureSize),
 			Type:           MessageTypeGossipPullRequest,
+			Timestamp:      uint64(time.Now().UnixMilli()),
 			SenderIdentity: senderID,
 		},
 		PacketFooter: PacketFooter{
@@ -136,6 +141,7 @@ func NewPacketPullResponse(senderID Identity, nodes []Node) (*PacketPullResponse
 		PacketHeader: PacketHeader{
 			Size:           uint16(packetSize),
 			Type:           MessageTypeGossipPullResponse,
+			Timestamp:      uint64(time.Now().UnixMilli()),
 			SenderIdentity: senderID,
 		},
 		Nodes: nodes,
@@ -160,6 +166,7 @@ func NewPacketPushRequest(senderID Identity) (*PacketPushRequest, error) {
 		PacketHeader: PacketHeader{
 			Size:           uint16(PacketHeaderSize + SignatureSize),
 			Type:           MessageTypeGossipPushRequest,
+			Timestamp:      uint64(time.Now().UnixMilli()),
 			SenderIdentity: senderID,
 		},
 		PacketFooter: PacketFooter{
@@ -185,6 +192,7 @@ func NewPacketPushChallenge(senderID Identity, difficulty uint32, challenge []by
 		PacketHeader: PacketHeader{
 			Size:           uint16(PacketHeaderSize+SignatureSize+challengeModule.ChallengeSize) + 4, // difficulty = 4
 			Type:           MessageTypeGossipPushChallenge,
+			Timestamp:      uint64(time.Now().UnixMilli()),
 			SenderIdentity: senderID,
 		},
 		Difficulty: difficulty,
@@ -214,6 +222,7 @@ func NewPacketPush(senderID Identity, challenge []byte, nonce []byte, node Node)
 		PacketHeader: PacketHeader{
 			Size:           uint16(packetSize),
 			Type:           MessageTypeGossipPush,
+			Timestamp:      uint64(time.Now().UnixMilli()),
 			SenderIdentity: senderID,
 		},
 		Challenge: challenge,
@@ -245,6 +254,7 @@ func NewPacketMessage(senderID Identity, ttl uint8, dataType uint16, data []byte
 		PacketHeader: PacketHeader{
 			Size:           uint16(packetSize),
 			Type:           MessageTypeGossipMessage,
+			Timestamp:      uint64(time.Now().UnixMilli()),
 			SenderIdentity: senderID,
 		},
 		TTL:      ttl,

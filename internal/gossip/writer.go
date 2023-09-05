@@ -30,6 +30,7 @@ func (p *PacketHeader) ToBytes() []byte {
 	var bytes []byte
 	bytes = binary.BigEndian.AppendUint16(bytes, p.Size)
 	bytes = binary.BigEndian.AppendUint16(bytes, uint16(p.Type))
+	bytes = binary.BigEndian.AppendUint64(bytes, p.Timestamp)
 	bytes = append(bytes, p.SenderIdentity...)
 	return bytes
 }
