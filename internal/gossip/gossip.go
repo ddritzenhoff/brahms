@@ -249,13 +249,13 @@ func parseBootstrapNodesStr(nodesStr string) ([]Node, error) {
 }
 
 // RandomSubset returns a random subset of up to length n of the nodes. If n is greater then len(nodes), only a random subset of len(nodes) will be returned.
-func randSubset(nodes []Node, n int) ([]*Node, error) {
-	if n == 0 {
-		return nil, nil
-	} else if n > len(nodes) {
+func randSubset(nodes []Node, desiredNum int) ([]*Node, error) {
+	if desiredNum == 0 {
+		return []*Node{}, nil
+	} else if desiredNum > len(nodes) {
 		return randSubset(nodes, len(nodes))
-	} else if n < 0 {
-		return nil, fmt.Errorf("n cannot be negative: received %d", n)
+	} else if desiredNum < 0 {
+		return nil, fmt.Errorf("desiredNum cannot be negative: received %d", desiredNum)
 	}
 
 	copySlice := make([]*Node, 0)
@@ -263,19 +263,20 @@ func randSubset(nodes []Node, n int) ([]*Node, error) {
 		copySlice = append(copySlice, &nodes[ii])
 	}
 
-	for i := 0; i < len(copySlice); i++ {
-		// Generate a random index between 0 and i (inclusive)
-		bigJ, err := rand.Int(rand.Reader, big.NewInt(int64(len(copySlice))))
-		if err != nil {
-			return nil, err
-		}
-		if !bigJ.IsInt64() {
-			return nil, fmt.Errorf("j is not of type int64: %s", bigJ.String())
-		}
-		j := bigJ.Int64()
+	// Get the length of the slice
+	n := len(copySlice)
 
-		// Swap the elements at i and j
-		copySlice[i], copySlice[j] = copySlice[j], copySlice[i]
+	// Iterate through the slice in reverse order
+	for ii := n - 1; ii > 0; ii-- {
+		// Generate a random index between 0 and i (inclusive)
+		j, err := rand.Int(rand.Reader, big.NewInt(int64(ii+1)))
+		if err != nil {
+			panic(err)
+		}
+		randomIndex := int(j.Int64())
+
+		// Swap the elements at randomIndex and i
+		copySlice[ii], copySlice[randomIndex] = copySlice[randomIndex], copySlice[ii]
 	}
-	return copySlice[:n], nil
+	return copySlice[:desiredNum], nil
 }
