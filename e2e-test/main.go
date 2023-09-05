@@ -12,13 +12,6 @@ import (
 	"encoding/pem"
 	"flag"
 	"fmt"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/api/types/network"
-	dockerClient "github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/archive"
-	"github.com/docker/go-connections/nat"
 	"io"
 	"log"
 	"os"
@@ -26,6 +19,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/api/types/network"
+	dockerClient "github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/archive"
+	"github.com/docker/go-connections/nat"
 )
 
 const (
@@ -126,6 +127,11 @@ func runStartCommand(numNodes int) {
 		log.Fatalln(err)
 	}
 
+	os.Chmod(testCertsDir, os.FileMode(0755))
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	var identities []string
 
 	for i := 0; i < numNodes; i++ {
@@ -139,6 +145,12 @@ func runStartCommand(numNodes int) {
 		identities = append(identities, identityString)
 
 		pemFile, err := os.Create(testCertsDir + string(os.PathSeparator) + identityString)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		// Set the file permissions
+		err = pemFile.Chmod(os.FileMode(0755))
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -181,6 +193,10 @@ func runStartCommand(numNodes int) {
 
 	log.Println("Generating config files...")
 	err = os.Mkdir(testConfigsDir, os.ModeDir)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	os.Chmod(testConfigsDir, os.FileMode(0755))
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -259,6 +275,13 @@ func generateConfigFile(nodeIdentity string, nodeIP string, bootStrapIdentity *s
 	if err != nil {
 		log.Fatalln(err)
 	}
+
+	// Set the file permissions
+	err = cfgFileOut.Chmod(os.FileMode(0755))
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	_, err = io.Copy(cfgFileOut, cfgFileIn)
 	if err != nil {
 		log.Fatalln(err)
