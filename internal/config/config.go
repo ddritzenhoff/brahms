@@ -28,12 +28,14 @@ var defaultConfig = GossipConfig{
 	/* BootstrapNodesStr doesn't have a default value */
 	// A value of 8 suggests ~8 seconds between health checks.
 	RoundsBetweenPings:  8,
-	CacheSize:           50,
 	ApiAddress:          "localhost:7001",
 	HostkeysPath:        "./hostkeys/",
 	GossipAddress:       "localhost:7002",
 	ChallengeDifficulty: 19,
 	ChallengeMaxSolveMs: 300,
+	weightPull:          45,
+	weightPush:          45,
+	weightHistory:       10,
 }
 
 // GossipConfig represents all of the values needed for the functioning of the gossip protocol.
@@ -43,7 +45,6 @@ type GossipConfig struct {
 	Alpha       float64
 	Beta        float64
 	Gamma       float64
-	CacheSize   int
 	ApiAddress  string
 	// BootstrapNodesStr is a list of node components in the following form --> nodes = <addr1>,<id1>|<addr2>,<id2>|...|<addrn>,<idn>|
 	BootstrapNodesStr string
@@ -56,6 +57,9 @@ type GossipConfig struct {
 	GossipAddress       string
 	ChallengeDifficulty int
 	ChallengeMaxSolveMs int
+	weightPull          int
+	weightPush          int
+	weightHistory       int
 }
 
 // ReadConfig reads the values in from a .ini file through a specified path and returns a populated config.
@@ -89,7 +93,6 @@ func ReadConfig(path string) (*GossipConfig, error) {
 		Gamma:               gamma,
 		BootstrapNodesStr:   gossipSection.Key("bootstrap_nodes").Value(),
 		RoundsBetweenPings:  getIntOrDefault(gossipSection.Key("rounds_between_pings"), defaultConfig.RoundsBetweenPings, false),
-		CacheSize:           getIntOrDefault(gossipSection.Key("cache_size"), defaultConfig.CacheSize, true),
 		ApiAddress:          getStringOrDefault(gossipSection.Key("api_address"), defaultConfig.ApiAddress, false),
 		HostkeysPath:        getStringOrDefault(gossipSection.Key("hostkeys_path"), defaultConfig.HostkeysPath, true),
 		PrivateKey:          privKey,
@@ -101,9 +104,9 @@ func ReadConfig(path string) (*GossipConfig, error) {
 
 // alphaBetaGamma retrieves the alpha, beta, and gamma values from the config. Note that weightPush, weightPull, and weightHistory must add up to 100.
 func alphaBetaGamma(gossipSection *ini.Section) (alpha float64, beta float64, gamma float64, err error) {
-	weightPush := getIntOrDefault(gossipSection.Key("weight_push"), defaultConfig.CacheSize, true)
-	weightPull := getIntOrDefault(gossipSection.Key("weight_pull"), defaultConfig.CacheSize, true)
-	weightHistory := getIntOrDefault(gossipSection.Key("weight_history"), defaultConfig.CacheSize, true)
+	weightPush := getIntOrDefault(gossipSection.Key("weight_push"), defaultConfig.weightPush, true)
+	weightPull := getIntOrDefault(gossipSection.Key("weight_pull"), defaultConfig.weightPull, true)
+	weightHistory := getIntOrDefault(gossipSection.Key("weight_history"), defaultConfig.weightHistory, true)
 	if weightPush <= 0 || weightPull <= 0 || weightHistory <= 0 {
 		err = fmt.Errorf("all weights must be greater than 0 -- weightPush:%d, weightPull:%d, weightHistory:%d", weightPush, weightPull, weightHistory)
 		return
